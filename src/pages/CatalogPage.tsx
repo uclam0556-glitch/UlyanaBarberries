@@ -64,7 +64,7 @@ export default function CatalogPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Поиск десертов..."
+                placeholder="Поиск десертов и букетов..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white border border-cream-dark rounded-xl pl-9 pr-4 py-2.5 text-sm text-choco placeholder-gray-400 focus:outline-none focus:border-primary transition-colors"

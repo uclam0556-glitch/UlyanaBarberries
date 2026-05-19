@@ -173,7 +173,7 @@ export default function HomePage() {
           className="relative overflow-hidden rounded-3xl"
         >
           <img
-            src="https://images.unsplash.com/photo-1548365328-8c6db3220e4c?w=800&q=80"
+            src="/images/chocolate_strawberries_promo.png"
             alt="Конструктор наборов"
             className="w-full h-48 object-cover"
           />
