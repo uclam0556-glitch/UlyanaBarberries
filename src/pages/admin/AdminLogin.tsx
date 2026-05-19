@@ -14,8 +14,10 @@ export default function AdminLogin() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!isSupabaseConfigured || !supabase) {
-      // Mock login for local dev
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if ((!isSupabaseConfigured || !supabase) && isLocalhost) {
+      // Mock login for local dev only
       toast.success('Успешный вход (Dev Mode)');
       navigate('/admin');
       return;

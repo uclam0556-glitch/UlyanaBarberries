@@ -12,7 +12,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-        <Helmet><title>Корзина — Клубника в Шоколаде</title></Helmet>
+        <Helmet><title>Корзина — Barberries</title></Helmet>
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -37,7 +37,7 @@ export default function CartPage() {
 
   return (
     <>
-      <Helmet><title>Корзина — Клубника в Шоколаде</title></Helmet>
+      <Helmet><title>Корзина — Barberries</title></Helmet>
 
       <div className="min-h-screen bg-cream">
         <div className="bg-white border-b border-cream-dark px-4 py-4">

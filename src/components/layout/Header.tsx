@@ -31,11 +31,11 @@ export default function Header() {
       <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-cream-dark/40">
         <div className="flex items-center justify-between px-4 h-14" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl">🍓</span>
+          <Link to="/" className="flex items-center gap-1.5">
+            <span className="text-2xl">🍓</span>
             <div>
-              <p className="font-display text-sm font-bold text-accent leading-none">Клубника</p>
-              <p className="font-display text-xs text-primary leading-none">в шоколаде</p>
+              <span className="font-display text-lg font-black tracking-tight text-accent leading-none block">BARBERRIES</span>
+              <span className="text-[9px] uppercase tracking-widest text-primary font-bold block -mt-0.5">Клубника и цветы</span>
             </div>
           </Link>
 

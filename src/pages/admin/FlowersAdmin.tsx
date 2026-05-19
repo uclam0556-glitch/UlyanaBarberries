@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Image as ImageIcon, X, Save, UploadCloud } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, UploadCloud } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { formatPrice } from '@/lib/utils';
-import { Product } from '@/types';
+import { Product, Category } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
@@ -21,23 +21,17 @@ function dataURItoBlob(dataURI: string) {
   return new Blob([ab], { type: mimeString });
 }
 
-export default function ProductsAdmin() {
-  const { data: initialProducts, isLoading } = useProducts();
-  const { data: categoriesList } = useCategories();
+export default function FlowersAdmin() {
+  const { data: initialProducts, isLoading: isProductsLoading } = useProducts();
+  const { data: categoriesList, isLoading: isCategoriesLoading } = useCategories();
   const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState('');
+  const [flowerCategoryId, setFlowerCategoryId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (initialProducts) {
-      setProducts(initialProducts);
-    }
-  }, [initialProducts]);
-  
   const defaultForm: Partial<Product> = {
     name: '',
     price: 0,
@@ -48,12 +42,68 @@ export default function ProductsAdmin() {
     is_active: true,
     is_featured: false,
     is_constructor_item: false,
-    category_id: undefined,
   };
 
   const [formData, setFormData] = useState<Partial<Product>>(defaultForm);
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) || [];
+  // 1. Find or create the "Flowers" category
+  useEffect(() => {
+    const findOrCreateCategory = async () => {
+      if (isCategoriesLoading || !categoriesList) return;
+
+      const existing = categoriesList.find(c => 
+        c.name.toLowerCase().includes('цвет') || c.name.toLowerCase().includes('букет')
+      );
+
+      if (existing) {
+        setFlowerCategoryId(existing.id);
+      } else {
+        // Create new category named "Цветы"
+        const newCategoryData = {
+          name: 'Цветы',
+          slug: 'flowers',
+          image_url: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=800&q=80',
+          sort_order: 10,
+          is_active: true
+        };
+
+        if (isSupabaseConfigured && supabase) {
+          try {
+            const { data, error } = await supabase
+              .from('categories')
+              .insert([newCategoryData])
+              .select()
+              .single();
+            
+            if (error) throw error;
+            if (data) {
+              setFlowerCategoryId(data.id);
+              queryClient.invalidateQueries({ queryKey: ['categories'] });
+            }
+          } catch (err) {
+            console.error('Error creating Flowers category in Supabase:', err);
+          }
+        } else {
+          // LocalDb fallback
+          const newCat = localDb.saveCategory({
+            ...newCategoryData,
+            id: `cat-flowers-${Date.now()}`
+          } as Category);
+          setFlowerCategoryId(newCat.id);
+        }
+      }
+    };
+
+    findOrCreateCategory();
+  }, [categoriesList, isCategoriesLoading]);
+
+  // 2. Filter products belonging to the Flower category
+  useEffect(() => {
+    if (initialProducts && flowerCategoryId) {
+      const filtered = initialProducts.filter(p => p.category_id === flowerCategoryId);
+      setProducts(filtered);
+    }
+  }, [initialProducts, flowerCategoryId]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,10 +134,8 @@ export default function ProductsAdmin() {
 
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('react');
         canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
         
-        // Compress to webp base64 (quality 0.8)
         const base64Data = canvas.toDataURL('image/webp', 0.8);
         setFormData({ ...formData, images: [base64Data] });
         setIsCompressing(false);
@@ -99,16 +147,19 @@ export default function ProductsAdmin() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.price) {
-      toast.error('Заполните название и текущую цену');
+      toast.error('Заполните название и цену цветка/букета');
+      return;
+    }
+    if (!flowerCategoryId) {
+      toast.error('Ошибка: Категория для цветов ещё не создана');
       return;
     }
 
-    const saveToast = toast.loading(editingId ? 'Сохранение изменений...' : 'Добавление товара...');
+    const saveToast = toast.loading(editingId ? 'Сохранение изменений...' : 'Добавление букета...');
     
     try {
       let imageUrls = [...(formData.images || [])];
       
-      // If we have a new base64 image, upload it to Supabase Storage
       if (imageUrls[0] && imageUrls[0].startsWith('data:image/')) {
         if (isSupabaseConfigured && supabase) {
           const blob = dataURItoBlob(imageUrls[0]);
@@ -121,14 +172,19 @@ export default function ProductsAdmin() {
       const baseSlug = formData.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi, '-').replace(/^-+|-+$/g, '');
       const uniqueSuffix = Math.random().toString(36).substring(2, 7);
       const slug = `${baseSlug}-${uniqueSuffix}`;
+
       const productData = {
-        ...formData,
-        slug,
-        images: imageUrls,
-        category_id: formData.category_id && formData.category_id !== '1' && formData.category_id !== '2' && formData.category_id !== '3' ? formData.category_id : undefined,
+        name: formData.name,
         price: Number(formData.price),
         old_price: formData.old_price ? Number(formData.old_price) : undefined,
+        description: formData.description || '',
+        images: imageUrls,
+        category_id: flowerCategoryId,
         stock_count: Number(formData.stock_count || 10),
+        is_active: formData.is_active,
+        is_featured: formData.is_featured,
+        is_constructor_item: false,
+        slug: editingId ? undefined : slug,
       };
 
       if (isSupabaseConfigured && supabase) {
@@ -139,14 +195,14 @@ export default function ProductsAdmin() {
             .eq('id', editingId);
           if (error) throw error;
           
-          toast.success('Товар обновлён', { id: saveToast });
+          toast.success('Букет успешно обновлён', { id: saveToast });
         } else {
           const { error } = await supabase
             .from('products')
             .insert([productData]);
           if (error) throw error;
 
-          toast.success('Товар добавлен', { id: saveToast });
+          toast.success('Букет успешно добавлен', { id: saveToast });
         }
         queryClient.invalidateQueries({ queryKey: ['products'] });
       } else {
@@ -156,14 +212,14 @@ export default function ProductsAdmin() {
           localDb.deleteProduct(editingId);
           const saved = localDb.saveProduct(updatedProduct);
           setProducts(products.map(p => p.id === editingId ? saved : p));
-          toast.success('Товар обновлён', { id: saveToast });
+          toast.success('Букет обновлён (локально)', { id: saveToast });
         } else {
           const newProduct = localDb.saveProduct({
             ...productData,
             created_at: new Date().toISOString()
           } as Product);
           setProducts([newProduct, ...products]);
-          toast.success('Товар добавлен', { id: saveToast });
+          toast.success('Букет добавлен (локально)', { id: saveToast });
         }
       }
 
@@ -189,8 +245,8 @@ export default function ProductsAdmin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Удалить этот товар?')) {
-      const deleteToast = toast.loading('Удаление товара...');
+    if (confirm('Удалить этот цветок / букет?')) {
+      const deleteToast = toast.loading('Удаление...');
       try {
         if (isSupabaseConfigured && supabase) {
           const { error } = await supabase.from('products').delete().eq('id', id);
@@ -209,84 +265,82 @@ export default function ProductsAdmin() {
     }
   };
 
+  const isLoading = isProductsLoading || isCategoriesLoading;
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <h1 className="font-display text-2xl font-bold text-choco">Управление товарами</h1>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-choco flex items-center gap-2">
+            <span>🌸</span>
+            Управление цветами и букетами
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Специализированный раздел для создания и редактирования живых цветов, авторских букетов и цветочных композиций
+          </p>
+        </div>
         <button 
           onClick={openAddModal}
           className="bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20"
         >
           <Plus className="w-4 h-4" />
-          Добавить товар
+          Добавить букет
         </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        <div className="p-4 border-b border-cream-dark">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Поиск по названию..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-cream border border-cream-dark rounded-xl pl-9 pr-4 py-2 text-sm text-choco focus:outline-none focus:border-primary"
-            />
-          </div>
-        </div>
-
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Загрузка...</div>
+            <div className="p-8 text-center text-gray-500">Загрузка цветов...</div>
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-cream-dark/30 text-xs text-gray-500 uppercase tracking-wider">
                   <th className="py-3 px-4 font-semibold">Фото</th>
-                  <th className="py-3 px-4 font-semibold">Название</th>
+                  <th className="py-3 px-4 font-semibold">Название букета</th>
                   <th className="py-3 px-4 font-semibold">Цена</th>
-                  <th className="py-3 px-4 font-semibold">Остаток</th>
                   <th className="py-3 px-4 font-semibold">Статус</th>
+                  <th className="py-3 px-4 font-semibold">Популярен</th>
                   <th className="py-3 px-4 font-semibold text-right">Действия</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((product: Product) => (
+                {products.map((product) => (
                   <tr key={product.id} className="border-b border-cream-dark hover:bg-cream/50 transition-colors">
                     <td className="py-3 px-4">
                       {product.images?.[0] ? (
-                        <img src={product.images[0]} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                        <img src={product.images[0]} alt="" className="w-10 h-10 object-cover rounded-lg border border-cream-dark shadow-sm bg-cream" />
                       ) : (
-                        <div className="w-12 h-12 rounded-lg bg-cream-dark flex items-center justify-center">
-                          <ImageIcon className="w-5 h-5 text-gray-400" />
-                        </div>
+                        <div className="w-10 h-10 bg-cream-dark/30 rounded-lg flex items-center justify-center text-choco text-xs">🌸</div>
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <p className="font-semibold text-sm text-choco line-clamp-1">{product.name}</p>
-                      <p className="text-xs text-gray-500">{product.category?.name || 'Без категории'}</p>
+                      <p className="font-semibold text-sm text-choco">{product.name}</p>
+                      {product.description && (
+                        <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{product.description}</p>
+                      )}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-primary">{formatPrice(product.price)}</span>
-                        {product.old_price && product.old_price > product.price && (
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-primary">{formatPrice(product.price)}</span>
+                        {product.old_price && (
                           <span className="text-xs text-gray-400 line-through">{formatPrice(product.old_price)}</span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-sm text-choco">{product.stock_count} шт</td>
                     <td className="py-3 px-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {product.is_active ? (
-                          <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Активен</span>
-                        ) : (
-                          <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold">Скрыт</span>
-                        )}
-                        {product.is_featured && (
-                          <span className="text-[10px] bg-gold-light text-gold-dark px-2 py-0.5 rounded-full font-bold">Хит</span>
-                        )}
-                      </div>
+                      {product.is_active ? (
+                        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Активен</span>
+                      ) : (
+                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold">Скрыт</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      {product.is_featured ? (
+                        <span className="text-[10px] bg-gold/20 text-gold-dark px-2 py-0.5 rounded-full font-bold">Да (Хит)</span>
+                      ) : (
+                        <span className="text-[10px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full font-bold">Нет</span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end gap-2">
@@ -306,10 +360,10 @@ export default function ProductsAdmin() {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
+                {products.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-gray-500 text-sm">
-                      Товары не найдены
+                      Букеты цветов ещё не созданы. Нажмите «Добавить букет», чтобы наполнить каталог красивыми цветами! 🌸
                     </td>
                   </tr>
                 )}
@@ -319,7 +373,7 @@ export default function ProductsAdmin() {
         </div>
       </div>
 
-      {/* Add/Edit Product Modal */}
+      {/* Add/Edit Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex justify-end">
@@ -338,8 +392,9 @@ export default function ProductsAdmin() {
               className="relative w-full max-w-md bg-[#FAF9F6] h-full shadow-2xl flex flex-col"
             >
               <div className="flex items-center justify-between p-6 border-b border-cream-dark bg-white shrink-0">
-                <h2 className="font-display text-xl font-bold text-choco">
-                  {editingId ? 'Редактировать товар' : 'Новый товар'}
+                <h2 className="font-display text-xl font-bold text-choco flex items-center gap-1.5">
+                  <span>🌸</span>
+                  {editingId ? 'Редактировать букет' : 'Добавить букет'}
                 </h2>
                 <button 
                   onClick={() => setIsModalOpen(false)}
@@ -351,24 +406,24 @@ export default function ProductsAdmin() {
 
               <div className="p-6 overflow-y-auto flex-1 space-y-5">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Название товара *</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Название букета / композиции *</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Например: Клубника Premium"
+                    placeholder="Например: Букет «Розовое облако» из 15 роз"
                     className="w-full bg-white border border-cream-dark rounded-xl px-4 py-3 text-sm text-choco focus:outline-none focus:border-primary shadow-sm"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Текущая цена (₽) *</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Цена (₽) *</label>
                     <input
                       type="number"
                       value={formData.price || ''}
                       onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                      placeholder="Напр: 1500"
+                      placeholder="3500"
                       className="w-full bg-white border border-cream-dark rounded-xl px-4 py-3 text-sm text-choco focus:outline-none focus:border-primary shadow-sm"
                     />
                   </div>
@@ -378,110 +433,88 @@ export default function ProductsAdmin() {
                       type="number"
                       value={formData.old_price || ''}
                       onChange={(e) => setFormData({ ...formData, old_price: Number(e.target.value) })}
-                      placeholder="Без скидки"
+                      placeholder="4200"
                       className="w-full bg-white border border-cream-dark rounded-xl px-4 py-3 text-sm text-choco focus:outline-none focus:border-primary shadow-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Остаток (шт)</label>
-                  <input
-                    type="number"
-                    value={formData.stock_count || ''}
-                    onChange={(e) => setFormData({ ...formData, stock_count: Number(e.target.value) })}
-                    placeholder="10"
-                    className="w-full bg-white border border-cream-dark rounded-xl px-4 py-3 text-sm text-choco focus:outline-none focus:border-primary shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Фотография товара</label>
-                  
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  
-                  {!formData.images?.[0] ? (
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full aspect-video rounded-xl border-2 border-dashed border-cream-dark bg-cream flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors touch-feedback"
-                    >
-                      {isCompressing ? (
-                        <div className="text-primary font-semibold text-sm">Обработка фото...</div>
-                      ) : (
-                        <>
-                          <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
-                          <span className="text-sm font-semibold text-choco">Нажмите, чтобы загрузить</span>
-                          <span className="text-xs text-gray-500 mt-1">PNG, JPG до 5MB</span>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-cream-dark bg-cream group">
-                      <img src={formData.images[0]} alt="Предпросмотр" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-choco/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="bg-white text-choco text-xs font-bold px-4 py-2 rounded-lg touch-feedback"
-                        >
-                          Изменить фото
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Категория</label>
-                  <select
-                    value={formData.category_id || ''}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value || undefined })}
-                    className="w-full bg-white border border-cream-dark rounded-xl px-4 py-3 text-sm text-choco focus:outline-none focus:border-primary shadow-sm appearance-none"
-                  >
-                    <option value="">Выберите категорию</option>
-                    {categoriesList?.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Описание</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Описание букета</label>
                   <textarea
-                    value={formData.description}
+                    value={formData.description || ''}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Красивое описание товара..."
+                    placeholder="Опишите состав букета, высоту, цвет упаковки и другие детали..."
                     rows={4}
                     className="w-full bg-white border border-cream-dark rounded-xl px-4 py-3 text-sm text-choco focus:outline-none focus:border-primary shadow-sm resize-none"
                   />
                 </div>
-                
-                <div className="flex gap-4 p-4 bg-white rounded-xl border border-cream-dark shadow-sm flex-wrap">
-                  <label className="flex items-center gap-2 cursor-pointer">
+
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Изображение</label>
+                  <div className="space-y-3">
+                    {formData.images?.[0] ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-cream-dark shadow-sm h-48 bg-cream flex items-center justify-center">
+                        <img 
+                          src={formData.images[0]} 
+                          alt="Превью" 
+                          className="w-full h-full object-cover" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, images: [''] })}
+                          className="absolute top-2 right-2 p-1.5 bg-choco/80 text-white rounded-full hover:bg-primary transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isCompressing}
+                        className="w-full h-32 border-2 border-dashed border-cream-dark rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-choco hover:border-primary transition-colors bg-white/50"
+                      >
+                        <UploadCloud className="w-8 h-8 text-primary" />
+                        <span className="text-xs font-semibold">
+                          {isCompressing ? 'Сжатие...' : 'Загрузить фото букета'}
+                        </span>
+                      </button>
+                    )}
                     <input 
-                      type="checkbox" 
-                      checked={formData.is_active} 
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="w-4 h-4 accent-primary" 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleImageUpload} 
+                      accept="image/*" 
+                      className="hidden" 
                     />
-                    <span className="text-sm font-semibold text-choco">Активен</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={formData.is_featured} 
-                      onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
-                      className="w-4 h-4 accent-gold" 
-                    />
-                    <span className="text-sm font-semibold text-choco">Хит продаж</span>
-                  </label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex gap-4 p-3 bg-white rounded-xl border border-cream-dark shadow-sm">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.is_active} 
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                        className="w-4 h-4 accent-primary" 
+                      />
+                      <span className="text-sm font-semibold text-choco">Активен (показывается на сайте)</span>
+                    </label>
+                  </div>
+
+                  <div className="flex gap-4 p-3 bg-white rounded-xl border border-cream-dark shadow-sm">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.is_featured} 
+                        onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
+                        className="w-4 h-4 accent-primary" 
+                      />
+                      <span className="text-sm font-semibold text-choco">Хит продаж (на главной странице)</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -491,7 +524,7 @@ export default function ProductsAdmin() {
                   className="w-full bg-primary text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20"
                 >
                   <Save className="w-5 h-5" />
-                  {editingId ? 'Сохранить изменения' : 'Сохранить товар'}
+                  {editingId ? 'Сохранить изменения' : 'Создать букет'}
                 </button>
               </div>
             </motion.div>

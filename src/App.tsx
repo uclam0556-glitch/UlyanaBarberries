@@ -15,10 +15,12 @@ import AdminLogin from '@/pages/admin/AdminLogin';
 import AdminLayout from '@/pages/admin/AdminLayout';
 import DashboardAdmin from '@/pages/admin/DashboardAdmin';
 import ProductsAdmin from '@/pages/admin/ProductsAdmin';
+import FlowersAdmin from '@/pages/admin/FlowersAdmin';
 import CategoriesAdmin from '@/pages/admin/CategoriesAdmin';
 import OrdersAdmin from '@/pages/admin/OrdersAdmin';
 import BannersAdmin from '@/pages/admin/BannersAdmin';
 import BoxesAdmin from '@/pages/admin/BoxesAdmin';
+import ConstructorItemsAdmin from '@/pages/admin/ConstructorItemsAdmin';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +49,8 @@ function AnimatedRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<DashboardAdmin />} />
           <Route path="products" element={<ProductsAdmin />} />
+          <Route path="flowers" element={<FlowersAdmin />} />
+          <Route path="constructor-items" element={<ConstructorItemsAdmin />} />
           <Route path="categories" element={<CategoriesAdmin />} />
           <Route path="orders" element={<OrdersAdmin />} />
           <Route path="banners" element={<BannersAdmin />} />

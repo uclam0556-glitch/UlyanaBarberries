@@ -7,25 +7,25 @@ export const STORE_PHONE = import.meta.env.VITE_STORE_PHONE || '+7 (900) 000-00-
 
 export function buildOrderText(order: Order): string {
   const deliveryTimeLabel = order.delivery_time
-    ? `🕐 Время: ${order.delivery_time}`
+    ? `⏰ *Время доставки:* ${order.delivery_time}`
     : '';
 
   return [
-    '🍓 *НОВЫЙ ЗАКАЗ — Клубника в Шоколаде*',
-    '─────────────────────',
-    `👤 Имя: ${order.customer_name}`,
-    `📞 Телефон: ${order.customer_phone}`,
-    order.customer_address ? `📍 Адрес: ${order.customer_address}` : '',
+    '🍓 *НОВЫЙ ЗАКАЗ — BARBERRIES* 🍓',
+    '--------------------------------------',
+    `*Клиент:* ${order.customer_name}`,
+    `📞 *Телефон:* ${order.customer_phone}`,
+    order.customer_address ? `🏠 *Адрес доставки:* ${order.customer_address}` : '',
     deliveryTimeLabel,
     '',
-    '*Состав заказа:*',
+    '🎁 *Состав заказа:*',
     ...order.items.map(item =>
-      `• ${item.name} × ${item.qty} — ${(item.price * item.qty).toLocaleString('ru-RU')} ₽`
+      `🍓 *${item.name}* × ${item.qty} шт. — *${(item.price * item.qty).toLocaleString('ru-RU')} ₽*`
       + (item.options ? `\n  _(${item.options})_` : '')
     ),
-    '─────────────────────',
-    `💰 *Итого: ${order.total_price.toLocaleString('ru-RU')} ₽*`,
-    order.notes ? `\n📝 Примечание: ${order.notes}` : '',
+    '--------------------------------------',
+    `💵 *ИТОГО К ОПЛАТЕ: ${order.total_price.toLocaleString('ru-RU')} ₽*`,
+    order.notes ? `\n💬 *Пожелания к заказу:* ${order.notes}` : '',
   ].filter(Boolean).join('\n');
 }
 

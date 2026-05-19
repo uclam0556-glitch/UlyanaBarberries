@@ -77,7 +77,7 @@ export default function ProductPage() {
   return (
     <>
       <Helmet>
-        <title>{product.name} — Клубника в Шоколаде</title>
+        <title>{product.name} — Barberries</title>
         <meta name="description" content={product.short_desc || product.description || ''} />
       </Helmet>
 

@@ -12,9 +12,9 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 const features = [
   { icon: '🍓', title: 'Свежая клубника', desc: 'Только отборные ягоды каждый день' },
+  { icon: '🌸', title: 'Свежие цветы', desc: 'Красивые букеты и композиции' },
   { icon: '🍫', title: 'Бельгийский шоколад', desc: 'Настоящий премиум-шоколад' },
-  { icon: '🎀', title: 'Подарочная упаковка', desc: 'Красиво оформим бесплатно' },
-  { icon: '🚚', title: 'Доставка за 2 часа', desc: 'По всему городу' },
+  { icon: '🚚', title: 'Доставка за 2 часа', desc: 'По Балашихе и Москве' },
 ];
 
 const reviews = [

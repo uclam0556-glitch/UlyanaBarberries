@@ -40,9 +40,16 @@ const deliveryTimes = [
   'Завтра днём (13:00–17:00)',
 ];
 
+import { useState } from 'react';
+
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCartStore();
   const total = totalPrice();
+
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successPlatform, setSuccessPlatform] = useState<'vk' | 'wa' | 'tg' | 'call' | null>(null);
+  const [successUrl, setSuccessUrl] = useState('');
+  const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
   const {
     register,
@@ -64,7 +71,9 @@ export default function CheckoutPage() {
       name: item.product.name,
       qty: item.quantity,
       price: item.product.price + item.optionPrice,
-      options: Object.values(item.selectedOptions).join(', ') || undefined,
+      options: Object.entries(item.selectedOptions)
+        .map(([key, val]) => `${key}: ${val}`)
+        .join(', ') || undefined,
     }));
 
     const finalAddress = data.delivery_type === 'pickup' 
@@ -82,6 +91,9 @@ export default function CheckoutPage() {
       status: 'new',
     };
 
+    setLastOrder(order);
+    setSuccessPlatform(platform);
+
     // Save to Supabase if configured, otherwise use localDb
     if (isSupabaseConfigured && supabase) {
       try {
@@ -93,29 +105,92 @@ export default function CheckoutPage() {
       localDb.saveOrder(order);
     }
 
+    let url = '';
     // Open Social Network or Call
     if (platform === 'call') {
-      window.location.href = `tel:${STORE_PHONE.replace(/[^0-9+]/g, '')}`;
+      url = `tel:${STORE_PHONE.replace(/[^0-9+]/g, '')}`;
+      window.location.href = url;
     } else {
-      let url = '';
       if (platform === 'vk') url = buildVKOrderLink(order);
       if (platform === 'wa') url = buildWhatsAppOrderLink(order);
       if (platform === 'tg') url = buildTelegramOrderLink(order);
       
+      setSuccessUrl(url);
+
       if (platform === 'vk' || platform === 'tg') {
         try {
           await navigator.clipboard.writeText(buildOrderText(order));
-          toast.success('Текст заказа скопирован! Вставьте его в диалог.', { duration: 4000 });
+          toast.success('Текст заказа скопирован в буфер обмена!', { duration: 4000 });
         } catch (err) {
           console.warn('Failed to copy to clipboard', err);
         }
       }
 
-      window.open(url, '_blank');
+      // Redirect immediately to the social network app (prevents popup blocks and forces direct messaging)
+      window.location.href = url;
     }
     
+    setIsSuccess(true);
     clearCart();
   };
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6 text-center">
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-3xl p-8 shadow-card max-w-md w-full space-y-6"
+        >
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-4xl mx-auto border-2 border-green-200">
+            🎉
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="font-display text-2xl font-bold text-choco">Заказ успешно создан!</h2>
+            <p className="text-sm text-gray-500">
+              {successPlatform === 'call' 
+                ? 'Спасибо за ваш звонок! Наш менеджер уже принимает заказ.' 
+                : 'Почти готово! Мы подготовили сообщение с вашим заказом.'}
+            </p>
+          </div>
+
+          {(successPlatform === 'vk' || successPlatform === 'tg') && (
+            <div className="bg-cream p-4 rounded-2xl border border-cream-dark text-xs text-choco/80 text-left space-y-1.5">
+              <span className="font-bold text-choco block mb-1">📋 Текст скопирован!</span>
+              Мы автоматически сохранили параметры вашего заказа. Просто вставьте сообщение в диалог при переходе.
+            </div>
+          )}
+
+          <div className="space-y-3 pt-4">
+            {successPlatform !== 'call' && successUrl && (
+              <a 
+                href={successUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className={`w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg touch-feedback text-base ${
+                  successPlatform === 'wa' ? 'bg-[#25D366] shadow-[#25D366]/20' :
+                  successPlatform === 'tg' ? 'bg-[#229ED9] shadow-[#229ED9]/20' :
+                  'bg-[#0077FF] shadow-[#0077FF]/20'
+                }`}
+              >
+                {successPlatform === 'wa' ? '💬 Перейти в WhatsApp' :
+                 successPlatform === 'tg' ? '✈️ Перейти в Telegram' :
+                 '📱 Перейти во ВКонтакте'}
+              </a>
+            )}
+            
+            <a 
+              href="/catalog" 
+              className="w-full bg-cream hover:bg-cream-dark/50 text-choco border border-cream-dark font-bold py-4 rounded-2xl flex items-center justify-center text-sm transition-colors"
+            >
+              Вернуться в каталог
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -133,7 +208,7 @@ export default function CheckoutPage() {
   return (
     <>
       <Helmet>
-        <title>Оформление заказа — Клубника в Шоколаде</title>
+        <title>Оформление заказа — Barberries</title>
       </Helmet>
 
       <div className="min-h-screen bg-cream">

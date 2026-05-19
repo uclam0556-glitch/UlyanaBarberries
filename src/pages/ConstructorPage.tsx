@@ -26,9 +26,35 @@ export default function ConstructorPage() {
   const handleAddToCart = () => {
     if (filledCount === 0 || !selectedBox) return;
 
-    items.forEach((ci) => {
-      addToCart(ci.product, ci.quantity, {}, 0);
-    });
+    const totalBerriesPrice = items.reduce((sum, ci) => sum + ci.product.price * ci.quantity, 0);
+    const totalBoxPrice = selectedBox.base_price + totalBerriesPrice;
+
+    // Создаем виртуальный товар, описывающий весь собранный набор
+    const customBoxProduct: Product = {
+      id: `custom-box-${selectedBox.id}-${Date.now()}`,
+      name: `Свой набор (${selectedBox.name})`,
+      price: totalBoxPrice,
+      images: [selectedBox.image_url || ''],
+      is_active: true,
+      slug: `custom-box-${selectedBox.id}-${Date.now()}`,
+      sort_order: 1,
+      description: `Индивидуально собранный набор из ягод.`,
+      created_at: new Date().toISOString(),
+      is_featured: false,
+      stock_count: 999,
+    };
+
+    const berriesSummary = items.map((ci) => `${ci.product.name} ×${ci.quantity}`).join(', ');
+    const selectedOptions: Record<string, string> = {
+      'Состав': berriesSummary,
+      'Вместимость': `${selectedBox.capacity} ягод`,
+    };
+
+    if (note.trim()) {
+      selectedOptions['Надпись'] = note.trim();
+    }
+
+    addToCart(customBoxProduct, 1, selectedOptions, 0);
 
     toast.success('Набор добавлен в корзину! 🎁', {
       style: {
@@ -45,7 +71,7 @@ export default function ConstructorPage() {
   return (
     <>
       <Helmet>
-        <title>Собери свой набор — Клубника в Шоколаде</title>
+        <title>Собери свой набор — Barberries</title>
         <meta name="description" content="Собери свой идеальный подарочный набор из клубники в шоколаде. Выбери коробку и наполнение." />
       </Helmet>
 
@@ -281,7 +307,8 @@ function ConstructorProductCard({
         )}
       </div>
       <div className="p-2">
-        <p className="text-xs font-semibold text-choco line-clamp-2 leading-snug mb-2">{product.name}</p>
+        <p className="text-xs font-semibold text-choco line-clamp-2 leading-snug">{product.name}</p>
+        <p className="text-xs font-bold text-primary mb-2 mt-0.5">{formatPrice(product.price)} / шт</p>
         <div className="flex items-center gap-1">
           {count > 0 && (
             <button

@@ -52,8 +52,8 @@ export default function CatalogPage() {
   return (
     <>
       <Helmet>
-        <title>Каталог — Клубника в Шоколаде</title>
-        <meta name="description" content="Весь ассортимент клубники в шоколаде. Подарочные наборы, одиночные ягоды, ассорти. Доставка по городу за 2 часа." />
+        <title>Каталог — Barberries</title>
+        <meta name="description" content="Весь ассортимент десертов из клубники в шоколаде ручной работы от Barberries. Подарочные наборы, одиночные ягоды, ассорти. Доставка по городу за 2 часа." />
       </Helmet>
 
       <div className="min-h-screen">
