@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #B5334F;
+  --color-primary-light: #F9E8ED;
+  --color-accent: #7B4D2E;
+  --color-gold: #C9A96E;
+  --color-cream: #FDF8F4;
+  --color-dark: #1A0A0F;
+  --color-gray: #6B6B6B;
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Inter', sans-serif;
+
+  /* Safe area for iOS */
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #FDF8F4;
+  color: #1A0A0F;
+  overscroll-behavior-y: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #FDF8F4;
+}
+::-webkit-scrollbar-thumb {
+  background: #C9A96E;
+  border-radius: 100px;
+}
+
+/* Horizontal scroll snap */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-snap-start {
+  scroll-snap-align: start;
+}
+
+/* Shimmer effect */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #f5ede4 25%,
+    #ffe8e8 37%,
+    #f5ede4 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Text styles */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Mobile bottom padding for nav */
+.pb-nav {
+  padding-bottom: calc(72px + var(--safe-area-bottom));
+}
+
+/* Price text */
+.price-text {
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #B5334F 0%, #C9A96E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(253, 248, 244, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-dark {
+  background: rgba(26, 10, 15, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Hide scrollbar but keep scroll */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Touch feedback */
+.touch-feedback {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+.touch-feedback:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* Gold divider */
+.gold-divider {
+  width: 48px;
+  height: 2px;
+  background: linear-gradient(90deg, #C9A96E, #B5334F);
+  border-radius: 100px;
+  margin: 12px 0;
+}
+
+/* Product card aspect ratio */
+.aspect-product {
+  aspect-ratio: 4/5;
+}
+
+/* Stars */
+.stars {
+  color: #C9A96E;
+  letter-spacing: -1px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -400% 0; }
+  100% { background-position: 400% 0; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* iOS rubber band prevention */
+.no-bounce {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
