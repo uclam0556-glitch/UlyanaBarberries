@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const isProd = import.meta.env.PROD;
-// В продакшене используем наш бесплатный прокси на Vercel
-const proxyUrl = 'https://api.barberries.shop/supabase-proxy';
+// В продакшене используем наш бесплатный прокси на Cloudflare Workers
+const proxyUrl = 'https://api.barberries.shop';
 
 const supabaseUrl = isProd ? proxyUrl : (import.meta.env.VITE_SUPABASE_URL || '');
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
