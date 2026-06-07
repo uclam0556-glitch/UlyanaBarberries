@@ -1,5 +1,27 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/supabase-proxy/:match*",
+      "destination": "https://pedudlvzotzusuzwvbhe.supabase.co/:match*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/supabase-proxy/:match*",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Client-Info, apikey, Authorization, Content-Type, Prefer"
+        }
+      ]
+    }
   ]
 }

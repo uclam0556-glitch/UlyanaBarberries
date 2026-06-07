@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const isProd = import.meta.env.PROD;
-// В продакшене (на сервере Timeweb) используем наш локальный прокси, 
-// чтобы запросы шли с российского сервера, а не напрямую от клиента.
-const proxyUrl = typeof window !== 'undefined' ? `${window.location.origin}/supabase-proxy` : '/supabase-proxy';
+// В продакшене используем наш бесплатный прокси на Vercel
+const proxyUrl = 'https://api.barberries.shop/supabase-proxy';
 
 const supabaseUrl = isProd ? proxyUrl : (import.meta.env.VITE_SUPABASE_URL || '');
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
