@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Minus, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCartStore } from '@/store/cartStore';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, triggerHaptic } from '@/lib/utils';
 
 const drawerVariants = {
   hidden: { x: '100%', opacity: 0 },
@@ -87,7 +87,10 @@ export default function CartDrawer() {
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => {
+                                triggerHaptic('light');
+                                updateQuantity(item.id, item.quantity - 1);
+                              }}
                               className="w-7 h-7 bg-cream-dark rounded-lg flex items-center justify-center touch-feedback"
                             >
                               {item.quantity === 1 ? (
@@ -100,7 +103,10 @@ export default function CartDrawer() {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => {
+                                triggerHaptic('light');
+                                updateQuantity(item.id, item.quantity + 1);
+                              }}
                               className="w-7 h-7 bg-cream-dark rounded-lg flex items-center justify-center touch-feedback"
                             >
                               <Plus className="w-3.5 h-3.5 text-choco" />

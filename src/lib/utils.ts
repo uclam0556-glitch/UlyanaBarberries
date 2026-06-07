@@ -40,3 +40,18 @@ export function truncateText(text: string, maxLength: number): string {
 export function getDiscountPercent(price: number, oldPrice: number): number {
   return Math.round(((oldPrice - price) / oldPrice) * 100);
 }
+
+export function triggerHaptic(type: 'light' | 'medium' | 'heavy' | 'success' = 'light') {
+  if (typeof window !== 'undefined' && navigator.vibrate) {
+    try {
+      switch (type) {
+        case 'light': navigator.vibrate(10); break;
+        case 'medium': navigator.vibrate(20); break;
+        case 'heavy': navigator.vibrate(40); break;
+        case 'success': navigator.vibrate([10, 30, 20]); break;
+      }
+    } catch (e) {
+      // Ignore vibration errors
+    }
+  }
+}

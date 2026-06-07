@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ShoppingBag, Star } from 'lucide-react';
 import { Product } from '@/types';
-import { formatPrice, getDiscountPercent } from '@/lib/utils';
+import { formatPrice, getDiscountPercent, triggerHaptic } from '@/lib/utils';
 import { useCartStore } from '@/store/cartStore';
 import toast from 'react-hot-toast';
 
@@ -26,6 +26,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    triggerHaptic('medium');
     addItem(product);
     toast.success(`${product.name} добавлена в корзину! 🍓`, {
       duration: 2000,
