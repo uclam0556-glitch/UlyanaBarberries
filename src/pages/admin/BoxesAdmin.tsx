@@ -5,8 +5,7 @@ import { BoxConfig } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
-import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { supabase, isSupabaseConfigured, uploadImage } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 
 function dataURItoBlob(dataURI: string) {
@@ -28,7 +27,6 @@ export default function BoxesAdmin() {
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const [imageFile, setImageFile] = useState<File | null>(null);
   
   const defaultForm: Partial<BoxConfig> = {
     name: '',
@@ -50,7 +48,6 @@ export default function BoxesAdmin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImageFile(file);
     setIsCompressing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -99,31 +96,62 @@ export default function BoxesAdmin() {
     try {
       let finalImageUrl = formData.image_url || '';
 
-      if (imageFile) {
-        finalImageUrl = await uploadImageToImgbb(imageFile);
+      if (finalImageUrl.startsWith('data:image/')) {
+        const blob = dataURItoBlob(finalImageUrl);
+        const fileName = `${Date.now()}.webp`;
+        const path = `boxes/${fileName}`;
+        finalImageUrl = await uploadImage(blob, path);
       }
 
       const boxData = {
-        name: formData.name,
+        ...formData,
         capacity: Number(formData.capacity),
         base_price: Number(formData.base_price || 0),
         image_url: finalImageUrl,
-        is_active: formData.is_active ?? true,
       };
 
-      if (editingId) {
-        await updateDoc(doc(db, 'box_configs', editingId), boxData);
-        toast.success('Коробка обновлена', { id: saveToast });
+      if (isSupabaseConfigured && supabase) {
+        if (editingId) {
+          const { error } = await supabase
+            .from('box_configs')
+            .update(boxData)
+            .eq('id', editingId);
+          if (error) throw error;
+          
+          toast.success('Коробка обновлена', { id: saveToast });
+        } else {
+          const { error } = await supabase
+            .from('box_configs')
+            .insert([boxData]);
+          if (error) throw error;
+
+          toast.success('Коробка добавлена', { id: saveToast });
+        }
+        queryClient.invalidateQueries({ queryKey: ['boxes'] });
       } else {
-        await addDoc(collection(db, 'box_configs'), boxData);
-        toast.success('Коробка добавлена', { id: saveToast });
+        // Fallback for localDb mock configs
+        if (editingId) {
+          const updatedBox = { ...boxData, id: editingId } as BoxConfig;
+          const currentBoxes = [...boxes];
+          const index = currentBoxes.findIndex(b => b.id === editingId);
+          if (index !== -1) {
+            currentBoxes[index] = updatedBox;
+          }
+          setBoxes(currentBoxes);
+          toast.success('Коробка обновлена (локально)', { id: saveToast });
+        } else {
+          const newBox = {
+            ...boxData,
+            id: `box-${Date.now()}`,
+          } as BoxConfig;
+          setBoxes([...boxes, newBox]);
+          toast.success('Коробка добавлена (локально)', { id: saveToast });
+        }
       }
-      queryClient.invalidateQueries({ queryKey: ['boxes'] });
 
       setIsModalOpen(false);
       setEditingId(null);
       setFormData(defaultForm);
-      setImageFile(null);
     } catch (err: any) {
       console.error(err);
       toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
@@ -133,14 +161,12 @@ export default function BoxesAdmin() {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(defaultForm);
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (box: BoxConfig) => {
-    setEditingId(box.id!);
+    setEditingId(box.id);
     setFormData(box);
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -148,9 +174,15 @@ export default function BoxesAdmin() {
     if (confirm('Удалить эту конфигурацию коробки?')) {
       const deleteToast = toast.loading('Удаление коробки...');
       try {
-        await deleteDoc(doc(db, 'box_configs', id));
-        queryClient.invalidateQueries({ queryKey: ['boxes'] });
-        toast.success('Коробка удалена', { id: deleteToast });
+        if (isSupabaseConfigured && supabase) {
+          const { error } = await supabase.from('box_configs').delete().eq('id', id);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ['boxes'] });
+          toast.success('Коробка удалена', { id: deleteToast });
+        } else {
+          setBoxes(boxes.filter(b => b.id !== id));
+          toast.success('Коробка удалена (локально)', { id: deleteToast });
+        }
       } catch (err: any) {
         console.error(err);
         toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });

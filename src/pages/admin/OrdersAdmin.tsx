@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Eye, Search, Filter, X, Download, Printer } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localDb } from '@/lib/localDb';
 import { formatPrice } from '@/lib/utils';
 import { Order } from '@/types';
@@ -19,33 +18,36 @@ export default function OrdersAdmin() {
   }, []);
 
   const fetchOrders = async () => {
-    try {
-      const q = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const fetchedOrders: Order[] = [];
-      querySnapshot.forEach((doc) => {
-        fetchedOrders.push({ id: doc.id, ...doc.data() } as Order);
-      });
-      setOrders(fetchedOrders);
-    } catch (e: any) {
-      console.warn('Firebase orders error', e);
+    if (!isSupabaseConfigured || !supabase) {
       setOrders(localDb.getOrders());
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (e: any) {
+      toast.error('Ошибка загрузки заказов');
     } finally {
       setIsLoading(false);
     }
   };
 
   const updateStatus = async (id: string, status: string) => {
-    try {
-      await updateDoc(doc(db, 'orders', id), { status });
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('orders').update({ status }).eq('id', id);
       fetchOrders();
-      toast.success('Статус обновлён');
-    } catch (err) {
-      console.warn(err);
+    } else {
       localDb.updateOrderStatus(id, status);
       fetchOrders();
-      toast.success('Статус обновлён (Локально)');
     }
+    toast.success('Статус обновлён');
   };
 
   const filtered = orders.filter(o => 

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Package, Tags, ShoppingCart, Image as ImageIcon, LogOut, Box, Cherry, Flower, Menu, X } from 'lucide-react';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,16 +12,27 @@ export default function AdminLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setSession({ user });
-      } else {
-        setSession(null);
-      }
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if ((!isSupabaseConfigured || !supabase) && isLocalhost) {
+      // Mock session for local development only
+      setSession({ user: { email: 'admin@example.com' } });
+      setIsLoading(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Close mobile menu on page change
@@ -50,10 +60,10 @@ export default function AdminLayout() {
   ];
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Logout error', error);
+    if (supabase) {
+      await supabase.auth.signOut();
+    } else {
+      setSession(null); // mock logout
     }
   };
 

@@ -8,8 +8,7 @@ import { localDb } from '@/lib/localDb';
 import { useFeaturedProducts } from '@/hooks/useProducts';
 import ProductCard from '@/components/catalog/ProductCard';
 import { ProductGridSkeleton } from '@/components/catalog/ProductSkeleton';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { buildQuickTelegramLink } from '@/lib/social';
 
 const features = [
@@ -45,21 +44,19 @@ export default function HomePage() {
   useEffect(() => {
     const loadBanners = async () => {
       try {
-        const q = query(
-          collection(db, 'banners'),
-          where('is_active', '==', true),
-          orderBy('sort_order')
-        );
-        const querySnapshot = await getDocs(q);
-        const fetchedBanners: any[] = [];
-        querySnapshot.forEach((doc) => {
-          fetchedBanners.push({ id: doc.id, ...doc.data() });
-        });
-        if (fetchedBanners.length > 0) {
-          setBanners(fetchedBanners);
+        if (isSupabaseConfigured && supabase) {
+          const { data, error } = await supabase
+            .from('banners')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order');
+          if (error) throw error;
+          if (data && data.length > 0) {
+            setBanners(data);
+          }
         }
       } catch (err) {
-        console.error('Error loading banners from Firebase', err);
+        console.error('Error loading banners from Supabase', err);
       }
     };
     loadBanners();

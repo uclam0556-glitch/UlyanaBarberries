@@ -7,8 +7,7 @@ import { Product, Category } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
-import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { supabase, isSupabaseConfigured, uploadImage } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 
 function dataURItoBlob(dataURI: string) {
@@ -32,7 +31,6 @@ export default function FlowersAdmin() {
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const defaultForm: Partial<Product> = {
     name: '',
@@ -69,12 +67,24 @@ export default function FlowersAdmin() {
           is_active: true
         };
 
-        try {
-          const docRef = await addDoc(collection(db, 'categories'), newCategoryData);
-          setFlowerCategoryId(docRef.id);
-          queryClient.invalidateQueries({ queryKey: ['categories'] });
-        } catch (err) {
-          console.error('Error creating Flowers category in Firebase:', err);
+        if (isSupabaseConfigured && supabase) {
+          try {
+            const { data, error } = await supabase
+              .from('categories')
+              .insert([newCategoryData])
+              .select()
+              .single();
+            
+            if (error) throw error;
+            if (data) {
+              setFlowerCategoryId(data.id);
+              queryClient.invalidateQueries({ queryKey: ['categories'] });
+            }
+          } catch (err) {
+            console.error('Error creating Flowers category in Supabase:', err);
+          }
+        } else {
+          // LocalDb fallback
           const newCat = localDb.saveCategory({
             ...newCategoryData,
             id: `cat-flowers-${Date.now()}`
@@ -99,7 +109,6 @@ export default function FlowersAdmin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImageFile(file);
     setIsCompressing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -151,9 +160,13 @@ export default function FlowersAdmin() {
     try {
       let imageUrls = [...(formData.images || [])];
       
-      if (imageFile) {
-        const publicUrl = await uploadImageToImgbb(imageFile);
-        imageUrls = [publicUrl];
+      if (imageUrls[0] && imageUrls[0].startsWith('data:image/')) {
+        if (isSupabaseConfigured && supabase) {
+          const blob = dataURItoBlob(imageUrls[0]);
+          const filename = `products/${Date.now()}.webp`;
+          const publicUrl = await uploadImage(blob, filename);
+          imageUrls = [publicUrl];
+        }
       }
 
       const baseSlug = formData.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi, '-').replace(/^-+|-+$/g, '');
@@ -163,30 +176,56 @@ export default function FlowersAdmin() {
       const productData = {
         name: formData.name,
         price: Number(formData.price),
-        old_price: formData.old_price ? Number(formData.old_price) : null,
+        old_price: formData.old_price ? Number(formData.old_price) : undefined,
         description: formData.description || '',
         images: imageUrls,
         category_id: flowerCategoryId,
         stock_count: Number(formData.stock_count || 10),
-        is_active: formData.is_active ?? true,
-        is_featured: formData.is_featured ?? false,
+        is_active: formData.is_active,
+        is_featured: formData.is_featured,
         is_constructor_item: false,
         slug: editingId ? undefined : slug,
       };
 
-      if (editingId) {
-        await updateDoc(doc(db, 'products', editingId), productData);
-        toast.success('Букет успешно обновлён', { id: saveToast });
+      if (isSupabaseConfigured && supabase) {
+        if (editingId) {
+          const { error } = await supabase
+            .from('products')
+            .update(productData)
+            .eq('id', editingId);
+          if (error) throw error;
+          
+          toast.success('Букет успешно обновлён', { id: saveToast });
+        } else {
+          const { error } = await supabase
+            .from('products')
+            .insert([productData]);
+          if (error) throw error;
+
+          toast.success('Букет успешно добавлен', { id: saveToast });
+        }
+        queryClient.invalidateQueries({ queryKey: ['products'] });
       } else {
-        await addDoc(collection(db, 'products'), productData);
-        toast.success('Букет успешно добавлен', { id: saveToast });
+        // Fallback to localDb
+        if (editingId) {
+          const updatedProduct = { ...productData, id: editingId } as Product;
+          localDb.deleteProduct(editingId);
+          const saved = localDb.saveProduct(updatedProduct);
+          setProducts(products.map(p => p.id === editingId ? saved : p));
+          toast.success('Букет обновлён (локально)', { id: saveToast });
+        } else {
+          const newProduct = localDb.saveProduct({
+            ...productData,
+            created_at: new Date().toISOString()
+          } as Product);
+          setProducts([newProduct, ...products]);
+          toast.success('Букет добавлен (локально)', { id: saveToast });
+        }
       }
-      queryClient.invalidateQueries({ queryKey: ['products'] });
 
       setIsModalOpen(false);
       setEditingId(null);
       setFormData(defaultForm);
-      setImageFile(null);
     } catch (err: any) {
       console.error(err);
       toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
@@ -196,14 +235,12 @@ export default function FlowersAdmin() {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(defaultForm);
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (product: Product) => {
     setEditingId(product.id!);
     setFormData(product);
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -211,9 +248,16 @@ export default function FlowersAdmin() {
     if (confirm('Удалить этот цветок / букет?')) {
       const deleteToast = toast.loading('Удаление...');
       try {
-        await deleteDoc(doc(db, 'products', id));
-        queryClient.invalidateQueries({ queryKey: ['products'] });
-        toast.success('Товар удален', { id: deleteToast });
+        if (isSupabaseConfigured && supabase) {
+          const { error } = await supabase.from('products').delete().eq('id', id);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+          toast.success('Товар удален', { id: deleteToast });
+        } else {
+          localDb.deleteProduct(id);
+          setProducts(products.filter(p => p.id !== id));
+          toast.success('Товар удален', { id: deleteToast });
+        }
       } catch (err: any) {
         console.error(err);
         toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });

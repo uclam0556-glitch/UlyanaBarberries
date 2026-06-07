@@ -4,9 +4,9 @@ import { useConstructorProducts } from '@/hooks/useProducts';
 import { Product } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { supabase, isSupabaseConfigured, uploadImage } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
+
 function dataURItoBlob(dataURI: string) {
   const byteString = atob(dataURI.split(',')[1]);
   const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
@@ -26,7 +26,6 @@ export default function ConstructorItemsAdmin() {
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const [imageFile, setImageFile] = useState<File | null>(null);
   
   const defaultForm: Partial<Product> = {
     name: '',
@@ -49,7 +48,6 @@ export default function ConstructorItemsAdmin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImageFile(file);
     setIsCompressing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -97,10 +95,14 @@ export default function ConstructorItemsAdmin() {
     
     try {
       let imageUrls = formData.images || [''];
-      
-      if (imageFile) {
-        const publicUrl = await uploadImageToImgbb(imageFile);
-        imageUrls = [publicUrl];
+      let finalImageUrl = imageUrls[0] || '';
+
+      if (finalImageUrl.startsWith('data:image/')) {
+        const blob = dataURItoBlob(finalImageUrl);
+        const fileName = `${Date.now()}.webp`;
+        const path = `products/${fileName}`;
+        finalImageUrl = await uploadImage(blob, path);
+        imageUrls = [finalImageUrl];
       }
 
       const baseSlug = formData.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi, '-').replace(/^-+|-+$/g, '');
@@ -114,23 +116,48 @@ export default function ConstructorItemsAdmin() {
         is_active: formData.is_active,
         is_constructor_item: true,
         sort_order: Number(formData.sort_order || 1),
-        slug: editingId ? undefined : slug,
+        slug: editingId ? undefined : slug, // Don't change slug on edit to prevent routes breaks
       };
 
-      if (editingId) {
-        await updateDoc(doc(db, 'products', editingId), productData);
-        toast.success('Ингредиент обновлён', { id: saveToast });
+      if (isSupabaseConfigured && supabase) {
+        if (editingId) {
+          const { error } = await supabase
+            .from('products')
+            .update(productData)
+            .eq('id', editingId);
+          if (error) throw error;
+          
+          toast.success('Ингредиент обновлён', { id: saveToast });
+        } else {
+          const { error } = await supabase
+            .from('products')
+            .insert([productData]);
+          if (error) throw error;
+
+          toast.success('Ингредиент добавлен в конструктор', { id: saveToast });
+        }
+        
+        // Invalidate both catalog products & constructor products
+        queryClient.invalidateQueries({ queryKey: ['products'] });
       } else {
-        await addDoc(collection(db, 'products'), productData);
-        toast.success('Ингредиент добавлен в конструктор', { id: saveToast });
+        // Mock DB fallback
+        if (editingId) {
+          const updated = { ...formData, id: editingId } as Product;
+          setItems(items.map(item => item.id === editingId ? updated : item));
+          toast.success('Ингредиент обновлён (локально)', { id: saveToast });
+        } else {
+          const newItem = {
+            ...formData,
+            id: `item-${Date.now()}`,
+          } as Product;
+          setItems([...items, newItem]);
+          toast.success('Ингредиент добавлен (локально)', { id: saveToast });
+        }
       }
-      
-      queryClient.invalidateQueries({ queryKey: ['products'] });
 
       setIsModalOpen(false);
       setEditingId(null);
       setFormData(defaultForm);
-      setImageFile(null);
     } catch (err: any) {
       console.error(err);
       toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
@@ -140,14 +167,12 @@ export default function ConstructorItemsAdmin() {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(defaultForm);
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (item: Product) => {
-    setEditingId(item.id!);
+    setEditingId(item.id);
     setFormData(item);
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -155,9 +180,15 @@ export default function ConstructorItemsAdmin() {
     if (confirm('Удалить эту ягоду/наполнение из конструктора?')) {
       const deleteToast = toast.loading('Удаление ингредиента...');
       try {
-        await deleteDoc(doc(db, 'products', id));
-        queryClient.invalidateQueries({ queryKey: ['products'] });
-        toast.success('Ингредиент удален', { id: deleteToast });
+        if (isSupabaseConfigured && supabase) {
+          const { error } = await supabase.from('products').delete().eq('id', id);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+          toast.success('Ингредиент удален', { id: deleteToast });
+        } else {
+          setItems(items.filter(i => i.id !== id));
+          toast.success('Ингредиент удален (локально)', { id: deleteToast });
+        }
       } catch (err: any) {
         console.error(err);
         toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
