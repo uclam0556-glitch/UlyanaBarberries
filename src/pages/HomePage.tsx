@@ -200,6 +200,37 @@ export default function HomePage() {
         </motion.div>
       </section>
 
+      {/* Storytelling Section */}
+      <section className="bg-white px-4 py-12">
+        <div className="bg-cream-dark rounded-3xl p-6 md:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-gold/10 rounded-full blur-2xl" />
+          
+          <div className="relative z-10">
+            <h2 className="font-display text-h2-mobile font-bold text-choco mb-2">
+              Искусство в каждой детали
+            </h2>
+            <div className="gold-divider mb-5" />
+            
+            <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-4">
+              Создание клубники в шоколаде — это не просто десерт, это настоящее ювелирное искусство. Каждое утро мы лично отбираем самые крупные, плотные и сладкие ягоды, чтобы они стали идеальной основой для вашего подарка.
+            </p>
+            <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-4">
+              Мы используем только премиальный <strong className="text-choco font-semibold">бельгийский шоколад Callebaut</strong>. Он темперируется вручную по особой технологии, чтобы получить тот самый фирменный глянцевый блеск и звонкий хруст при укусе.
+            </p>
+            <div className="flex items-center gap-3 mt-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white text-xl shadow-lg">
+                🍓
+              </div>
+              <div>
+                <p className="font-bold text-choco text-sm">С любовью, Ульяна</p>
+                <p className="text-xs text-gray-500">Основатель Barberries</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Reviews */}
       <section className="bg-primary-light px-4 py-8">
         <h2 className="font-display text-h2-mobile font-bold text-choco mb-1 text-center">
