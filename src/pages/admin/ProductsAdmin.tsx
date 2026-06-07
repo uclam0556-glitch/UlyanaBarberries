@@ -132,6 +132,7 @@ export default function ProductsAdmin() {
         is_active: formData.is_active ?? true,
         is_featured: formData.is_featured ?? false,
         is_constructor_item: formData.is_constructor_item ?? false,
+        sort_order: formData.sort_order ?? 0,
       };
 
       if (editingId) {
