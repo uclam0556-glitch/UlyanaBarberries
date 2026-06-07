@@ -31,7 +31,7 @@ export function buildOrderText(order: Order): string {
 
 export function buildTelegramOrderLink(order: Order): string {
   const text = buildOrderText(order);
-  return `https://t.me/${TG_USERNAME}?text=${encodeURIComponent(text)}`;
+  return `https://t.me/+${WA_PHONE}?text=${encodeURIComponent(text)}`;
 }
 
 export function buildVKOrderLink(order: Order): string {
@@ -45,7 +45,7 @@ export function buildWhatsAppOrderLink(order: Order): string {
 }
 
 export function buildQuickTelegramLink(message: string): string {
-  return `https://t.me/${TG_USERNAME}?text=${encodeURIComponent(message)}`;
+  return `https://t.me/+${WA_PHONE}?text=${encodeURIComponent(message)}`;
 }
 
 export function buildQuickVKLink(message: string): string {
