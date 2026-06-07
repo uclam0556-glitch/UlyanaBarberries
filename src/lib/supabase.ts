@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const isProd = import.meta.env.PROD;
-// В продакшене используем наш бесплатный прокси на Cloudflare Workers (по умолчанию)
-const proxyUrl = 'https://supabase.uclam0556.workers.dev';
+// В продакшене используем локальный Node.js прокси (на Timeweb App Platform)
+const proxyUrl = typeof window !== 'undefined' ? window.location.origin + '/api/supabase' : '/api/supabase';
 
 const supabaseUrl = isProd ? proxyUrl : (import.meta.env.VITE_SUPABASE_URL || '');
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
