@@ -1,66 +1,79 @@
 import { useQuery } from '@tanstack/react-query';
 import { Product } from '@/types';
-import { mockProducts } from '@/lib/mockData';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 
 async function fetchProducts(): Promise<Product[]> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, category:categories(*), options:product_options(*)')
-      .eq('is_active', true)
-      .order('sort_order');
-    if (error) throw error;
-    return data || [];
+  try {
+    const q = query(
+      collection(db, 'products'),
+      where('is_active', '==', true),
+      orderBy('sort_order')
+    );
+    const querySnapshot = await getDocs(q);
+    const products: Product[] = [];
+    querySnapshot.forEach((doc) => {
+      products.push({ id: doc.id, ...doc.data() } as Product);
+    });
+    return products;
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    return [];
   }
-  // Fallback to mock data
-  return new Promise((resolve) => setTimeout(() => resolve(mockProducts), 500));
 }
 
 async function fetchProductBySlug(slug: string): Promise<Product | null> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, category:categories(*), options:product_options(*)')
-      .eq('slug', slug)
-      .eq('is_active', true)
-      .single();
-    if (error) return null;
-    return data;
+  try {
+    const q = query(
+      collection(db, 'products'),
+      where('slug', '==', slug),
+      where('is_active', '==', true),
+      limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return null;
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as Product;
+  } catch (error) {
+    console.error("Error fetching product by slug:", error);
+    return null;
   }
-  return new Promise((resolve) =>
-    setTimeout(() => {
-      resolve(mockProducts.find((p) => p.slug === slug) || null);
-    }, 300)
-  );
 }
 
 async function fetchFeaturedProducts(): Promise<Product[]> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, options:product_options(*)')
-      .eq('is_active', true)
-      .eq('is_featured', true)
-      .order('sort_order');
-    if (error) throw error;
-    
-    if (!data || data.length === 0) {
-      const { data: allActive, error: activeError } = await supabase
-        .from('products')
-        .select('*, options:product_options(*)')
-        .eq('is_active', true)
-        .order('sort_order')
-        .limit(10);
-      if (activeError) throw activeError;
-      return allActive || [];
+  try {
+    const q = query(
+      collection(db, 'products'),
+      where('is_active', '==', true),
+      where('is_featured', '==', true),
+      orderBy('sort_order')
+    );
+    const querySnapshot = await getDocs(q);
+    const products: Product[] = [];
+    querySnapshot.forEach((doc) => {
+      products.push({ id: doc.id, ...doc.data() } as Product);
+    });
+
+    if (products.length === 0) {
+      const allActiveQ = query(
+        collection(db, 'products'),
+        where('is_active', '==', true),
+        orderBy('sort_order'),
+        limit(10)
+      );
+      const allActiveSnap = await getDocs(allActiveQ);
+      const allActive: Product[] = [];
+      allActiveSnap.forEach((doc) => {
+        allActive.push({ id: doc.id, ...doc.data() } as Product);
+      });
+      return allActive;
     }
-    
-    return data || [];
+
+    return products;
+  } catch (error) {
+    console.error("Error fetching featured products:", error);
+    return [];
   }
-  return new Promise((resolve) =>
-    setTimeout(() => resolve(mockProducts.filter((p) => p.is_featured)), 400)
-  );
 }
 
 export function useProducts(categorySlug?: string) {
@@ -72,7 +85,8 @@ export function useProducts(categorySlug?: string) {
       const catalogProducts = products.filter(p => !p.is_constructor_item);
       
       if (categorySlug && categorySlug !== 'all') {
-        return catalogProducts.filter((p) => p.category?.slug === categorySlug);
+        // Since we are not doing a complex join like supabase, we filter on client
+        return catalogProducts.filter((p) => p.category_id === categorySlug || p.category?.slug === categorySlug);
       }
       return catalogProducts;
     },

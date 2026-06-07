@@ -5,9 +5,9 @@ import { Category } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
-import { supabase, isSupabaseConfigured, uploadImage } from '@/lib/supabase';
+import { db, uploadImageToImgbb } from '@/lib/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
-
 function dataURItoBlob(dataURI: string) {
   const byteString = atob(dataURI.split(',')[1]);
   const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
@@ -27,6 +27,7 @@ export default function CategoriesAdmin() {
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const [imageFile, setImageFile] = useState<File | null>(null);
   
   const defaultForm: Partial<Category> = {
     name: '',
@@ -48,6 +49,7 @@ export default function CategoriesAdmin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setImageFile(file);
     setIsCompressing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -99,59 +101,31 @@ export default function CategoriesAdmin() {
 
       let finalImageUrl = formData.image_url || '';
 
-      if (finalImageUrl.startsWith('data:image/')) {
-        const blob = dataURItoBlob(finalImageUrl);
-        const fileName = `${Date.now()}.webp`;
-        const path = `categories/${fileName}`;
-        finalImageUrl = await uploadImage(blob, path);
+      if (imageFile) {
+        finalImageUrl = await uploadImageToImgbb(imageFile);
       }
 
       const categoryData = {
-        ...formData,
+        name: formData.name,
         slug,
         image_url: finalImageUrl,
         sort_order: Number(formData.sort_order || 1),
+        is_active: formData.is_active ?? true,
       };
 
-      if (isSupabaseConfigured && supabase) {
-        if (editingId) {
-          const { error } = await supabase
-            .from('categories')
-            .update(categoryData)
-            .eq('id', editingId);
-          if (error) throw error;
-          
-          toast.success('Категория обновлена', { id: saveToast });
-        } else {
-          const { error } = await supabase
-            .from('categories')
-            .insert([categoryData]);
-          if (error) throw error;
-
-          toast.success('Категория добавлена', { id: saveToast });
-        }
-        queryClient.invalidateQueries({ queryKey: ['categories'] });
+      if (editingId) {
+        await updateDoc(doc(db, 'categories', editingId), categoryData);
+        toast.success('Категория обновлена', { id: saveToast });
       } else {
-        // Fallback to localDb
-        if (editingId) {
-          const updatedCategory = { ...categoryData, id: editingId } as Category;
-          localDb.deleteCategory(editingId);
-          const saved = localDb.saveCategory(updatedCategory);
-          setCategories(categories.map(c => c.id === editingId ? saved : c).sort((a, b) => a.sort_order - b.sort_order));
-          toast.success('Категория обновлена', { id: saveToast });
-        } else {
-          const newCategory = localDb.saveCategory({
-            ...categoryData,
-            created_at: new Date().toISOString()
-          } as Category);
-          setCategories([...categories, newCategory].sort((a, b) => a.sort_order - b.sort_order));
-          toast.success('Категория добавлена', { id: saveToast });
-        }
+        await addDoc(collection(db, 'categories'), categoryData);
+        toast.success('Категория добавлена', { id: saveToast });
       }
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
 
       setIsModalOpen(false);
       setEditingId(null);
       setFormData(defaultForm);
+      setImageFile(null);
     } catch (err: any) {
       console.error(err);
       toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
@@ -161,12 +135,14 @@ export default function CategoriesAdmin() {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(defaultForm);
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (category: Category) => {
     setEditingId(category.id!);
     setFormData(category);
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -174,16 +150,9 @@ export default function CategoriesAdmin() {
     if (confirm('Удалить эту категорию?')) {
       const deleteToast = toast.loading('Удаление категории...');
       try {
-        if (isSupabaseConfigured && supabase) {
-          const { error } = await supabase.from('categories').delete().eq('id', id);
-          if (error) throw error;
-          queryClient.invalidateQueries({ queryKey: ['categories'] });
-          toast.success('Категория удалена', { id: deleteToast });
-        } else {
-          localDb.deleteCategory(id);
-          setCategories(categories.filter(c => c.id !== id));
-          toast.success('Категория удалена', { id: deleteToast });
-        }
+        await deleteDoc(doc(db, 'categories', id));
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
+        toast.success('Категория удалена', { id: deleteToast });
       } catch (err: any) {
         console.error(err);
         toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });

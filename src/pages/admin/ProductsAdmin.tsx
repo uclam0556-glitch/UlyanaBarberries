@@ -7,7 +7,8 @@ import { Product } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
-import { supabase, isSupabaseConfigured, uploadImage } from '@/lib/supabase';
+import { db, uploadImageToImgbb } from '@/lib/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
 
 function dataURItoBlob(dataURI: string) {
@@ -31,6 +32,7 @@ export default function ProductsAdmin() {
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (initialProducts) {
@@ -58,6 +60,8 @@ export default function ProductsAdmin() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    setImageFile(file);
 
     setIsCompressing(true);
     const reader = new FileReader();
@@ -108,68 +112,41 @@ export default function ProductsAdmin() {
     try {
       let imageUrls = [...(formData.images || [])];
       
-      // If we have a new base64 image, upload it to Supabase Storage
-      if (imageUrls[0] && imageUrls[0].startsWith('data:image/')) {
-        if (isSupabaseConfigured && supabase) {
-          const blob = dataURItoBlob(imageUrls[0]);
-          const filename = `products/${Date.now()}.webp`;
-          const publicUrl = await uploadImage(blob, filename);
-          imageUrls = [publicUrl];
-        }
+      if (imageFile) {
+        const publicUrl = await uploadImageToImgbb(imageFile);
+        imageUrls = [publicUrl];
       }
 
       const baseSlug = formData.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi, '-').replace(/^-+|-+$/g, '');
       const uniqueSuffix = Math.random().toString(36).substring(2, 7);
       const slug = `${baseSlug}-${uniqueSuffix}`;
       const productData = {
-        ...formData,
+        name: formData.name,
+        description: formData.description || '',
         slug,
         images: imageUrls,
-        category_id: formData.category_id && formData.category_id !== '1' && formData.category_id !== '2' && formData.category_id !== '3' ? formData.category_id : undefined,
+        category_id: formData.category_id && formData.category_id !== '1' && formData.category_id !== '2' && formData.category_id !== '3' ? formData.category_id : null,
         price: Number(formData.price),
-        old_price: formData.old_price ? Number(formData.old_price) : undefined,
+        old_price: formData.old_price ? Number(formData.old_price) : null,
         stock_count: Number(formData.stock_count || 10),
+        is_active: formData.is_active ?? true,
+        is_featured: formData.is_featured ?? false,
+        is_constructor_item: formData.is_constructor_item ?? false,
       };
 
-      if (isSupabaseConfigured && supabase) {
-        if (editingId) {
-          const { error } = await supabase
-            .from('products')
-            .update(productData)
-            .eq('id', editingId);
-          if (error) throw error;
-          
-          toast.success('Товар обновлён', { id: saveToast });
-        } else {
-          const { error } = await supabase
-            .from('products')
-            .insert([productData]);
-          if (error) throw error;
-
-          toast.success('Товар добавлен', { id: saveToast });
-        }
-        queryClient.invalidateQueries({ queryKey: ['products'] });
+      if (editingId) {
+        await updateDoc(doc(db, 'products', editingId), productData);
+        toast.success('Товар обновлён', { id: saveToast });
       } else {
-        // Fallback to localDb
-        if (editingId) {
-          const updatedProduct = { ...productData, id: editingId } as Product;
-          localDb.deleteProduct(editingId);
-          const saved = localDb.saveProduct(updatedProduct);
-          setProducts(products.map(p => p.id === editingId ? saved : p));
-          toast.success('Товар обновлён', { id: saveToast });
-        } else {
-          const newProduct = localDb.saveProduct({
-            ...productData,
-            created_at: new Date().toISOString()
-          } as Product);
-          setProducts([newProduct, ...products]);
-          toast.success('Товар добавлен', { id: saveToast });
-        }
+        await addDoc(collection(db, 'products'), productData);
+        toast.success('Товар добавлен', { id: saveToast });
       }
+      queryClient.invalidateQueries({ queryKey: ['products'] });
 
       setIsModalOpen(false);
       setEditingId(null);
       setFormData(defaultForm);
+      setImageFile(null);
     } catch (err: any) {
       console.error(err);
       toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
@@ -179,12 +156,14 @@ export default function ProductsAdmin() {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(defaultForm);
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (product: Product) => {
     setEditingId(product.id!);
     setFormData(product);
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -192,16 +171,9 @@ export default function ProductsAdmin() {
     if (confirm('Удалить этот товар?')) {
       const deleteToast = toast.loading('Удаление товара...');
       try {
-        if (isSupabaseConfigured && supabase) {
-          const { error } = await supabase.from('products').delete().eq('id', id);
-          if (error) throw error;
-          queryClient.invalidateQueries({ queryKey: ['products'] });
-          toast.success('Товар удален', { id: deleteToast });
-        } else {
-          localDb.deleteProduct(id);
-          setProducts(products.filter(p => p.id !== id));
-          toast.success('Товар удален', { id: deleteToast });
-        }
+        await deleteDoc(doc(db, 'products', id));
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        toast.success('Товар удален', { id: deleteToast });
       } catch (err: any) {
         console.error(err);
         toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });

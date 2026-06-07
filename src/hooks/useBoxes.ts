@@ -1,24 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { BoxConfig } from '@/types';
-import { mockBoxConfigs } from '@/lib/mockData';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 
 async function fetchBoxes(): Promise<BoxConfig[]> {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('box_configs')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
-      if (error) throw error;
-      return data || [];
-    } catch (err) {
-      console.warn('Failed to fetch boxes from Supabase, falling back to mock data:', err);
-      return mockBoxConfigs;
-    }
+  try {
+    const q = query(
+      collection(db, 'box_configs'),
+      where('is_active', '==', true),
+      orderBy('sort_order')
+    );
+    const querySnapshot = await getDocs(q);
+    const boxes: BoxConfig[] = [];
+    querySnapshot.forEach((doc) => {
+      boxes.push({ id: doc.id, ...doc.data() } as BoxConfig);
+    });
+    return boxes;
+  } catch (error) {
+    console.error("Error fetching boxes:", error);
+    return [];
   }
-  return new Promise((resolve) => setTimeout(() => resolve(mockBoxConfigs), 300));
 }
 
 export function useBoxes() {
