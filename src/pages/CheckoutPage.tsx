@@ -8,7 +8,8 @@ import { useCartStore } from '@/store/cartStore';
 import { buildVKOrderLink, buildWhatsAppOrderLink, buildTelegramOrderLink, buildOrderText, STORE_PHONE } from '@/lib/social';
 import { formatPrice } from '@/lib/utils';
 import { Order, OrderItem } from '@/types';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { db } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import { localDb } from '@/lib/localDb';
 
 const schema = z.object({
@@ -94,14 +95,11 @@ export default function CheckoutPage() {
     setLastOrder(order);
     setSuccessPlatform(platform);
 
-    // Save to Supabase if configured, otherwise use localDb
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('orders').insert([order]);
-      } catch (e) {
-        console.warn('Order save failed:', e);
-      }
-    } else {
+    // Save to Firebase
+    try {
+      await addDoc(collection(db, 'orders'), order);
+    } catch (e) {
+      console.warn('Order save failed:', e);
       localDb.saveOrder(order);
     }
 

@@ -4,18 +4,8 @@ import { Banner } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
-import { supabase, isSupabaseConfigured, uploadImage } from '@/lib/supabase';
-
-function dataURItoBlob(dataURI: string) {
-  const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-}
+import { db, uploadImageToImgbb } from '@/lib/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 
 export default function BannersAdmin() {
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -34,17 +24,18 @@ export default function BannersAdmin() {
   };
 
   const [formData, setFormData] = useState<Partial<Banner>>(defaultForm);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     const loadBanners = async () => {
       try {
-        if (isSupabaseConfigured && supabase) {
-          const { data, error } = await supabase.from('banners').select('*').order('sort_order');
-          if (error) throw error;
-          setBanners(data || []);
-        } else {
-          setBanners(localDb.getBanners());
-        }
+        const q = query(collection(db, 'banners'), orderBy('sort_order'));
+        const querySnapshot = await getDocs(q);
+        const fetchedBanners: Banner[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedBanners.push({ id: doc.id, ...doc.data() } as Banner);
+        });
+        setBanners(fetchedBanners);
       } catch (err) {
         console.error('Error loading banners', err);
         setBanners(localDb.getBanners());
@@ -57,13 +48,13 @@ export default function BannersAdmin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setImageFile(file);
     setIsCompressing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Banners need higher resolution, e.g. 1200x800
         const MAX_WIDTH = 1200;
         const MAX_HEIGHT = 1200;
         let width = img.width;
@@ -86,7 +77,6 @@ export default function BannersAdmin() {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
         
-        // Compress to webp base64 (quality 0.8)
         const base64Data = canvas.toDataURL('image/webp', 0.8);
         setFormData({ ...formData, image_url: base64Data });
         setIsCompressing(false);
@@ -107,62 +97,39 @@ export default function BannersAdmin() {
     try {
       let imageUrl = formData.image_url;
 
-      // If new upload
-      if (imageUrl.startsWith('data:image/')) {
-        if (isSupabaseConfigured && supabase) {
-          const blob = dataURItoBlob(imageUrl);
-          const filename = `banners/${Date.now()}.webp`;
-          imageUrl = await uploadImage(blob, filename);
-        }
+      if (imageFile) {
+        imageUrl = await uploadImageToImgbb(imageFile);
       }
 
       const bannerData = {
-        ...formData,
+        title: formData.title || '',
+        subtitle: formData.subtitle || '',
         image_url: imageUrl,
+        link_url: formData.link_url || '',
         sort_order: Number(formData.sort_order || 1),
+        is_active: formData.is_active ?? true,
       };
 
-      if (isSupabaseConfigured && supabase) {
-        if (editingId) {
-          const { error } = await supabase
-            .from('banners')
-            .update(bannerData)
-            .eq('id', editingId);
-          if (error) throw error;
-          
-          toast.success('Баннер обновлён', { id: saveToast });
-        } else {
-          const { error } = await supabase
-            .from('banners')
-            .insert([bannerData]);
-          if (error) throw error;
-
-          toast.success('Баннер добавлен', { id: saveToast });
-        }
-        
-        // Reload banners
-        const { data } = await supabase.from('banners').select('*').order('sort_order');
-        setBanners(data || []);
+      if (editingId) {
+        await updateDoc(doc(db, 'banners', editingId), bannerData);
+        toast.success('Баннер обновлён', { id: saveToast });
       } else {
-        // Fallback
-        if (editingId) {
-          const updatedBanner = { ...bannerData, id: editingId } as Banner;
-          localDb.deleteBanner(editingId);
-          const saved = localDb.saveBanner(updatedBanner);
-          setBanners(banners.map(b => b.id === editingId ? saved : b));
-          toast.success('Баннер обновлён', { id: saveToast });
-        } else {
-          const newBanner = localDb.saveBanner({
-            ...bannerData,
-          } as Banner);
-          setBanners([...banners, newBanner]);
-          toast.success('Баннер добавлен', { id: saveToast });
-        }
+        await addDoc(collection(db, 'banners'), bannerData);
+        toast.success('Баннер добавлен', { id: saveToast });
       }
+      
+      const q = query(collection(db, 'banners'), orderBy('sort_order'));
+      const querySnapshot = await getDocs(q);
+      const fetchedBanners: Banner[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedBanners.push({ id: doc.id, ...doc.data() } as Banner);
+      });
+      setBanners(fetchedBanners);
 
       setIsModalOpen(false);
       setEditingId(null);
       setFormData(defaultForm);
+      setImageFile(null);
     } catch (err: any) {
       console.error(err);
       toast.error(`Ошибка сохранения баннера: ${err.message || err}`, { id: saveToast });
@@ -172,12 +139,14 @@ export default function BannersAdmin() {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(defaultForm);
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (banner: Banner) => {
     setEditingId(banner.id!);
     setFormData(banner);
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -185,18 +154,16 @@ export default function BannersAdmin() {
     if (confirm('Удалить этот баннер?')) {
       const deleteToast = toast.loading('Удаление баннера...');
       try {
-        if (isSupabaseConfigured && supabase) {
-          const { error } = await supabase.from('banners').delete().eq('id', id);
-          if (error) throw error;
-          
-          const { data } = await supabase.from('banners').select('*').order('sort_order');
-          setBanners(data || []);
-          toast.success('Баннер удален', { id: deleteToast });
-        } else {
-          localDb.deleteBanner(id);
-          setBanners(banners.filter(b => b.id !== id));
-          toast.success('Баннер удален', { id: deleteToast });
-        }
+        await deleteDoc(doc(db, 'banners', id));
+        
+        const q = query(collection(db, 'banners'), orderBy('sort_order'));
+        const querySnapshot = await getDocs(q);
+        const fetchedBanners: Banner[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedBanners.push({ id: doc.id, ...doc.data() } as Banner);
+        });
+        setBanners(fetchedBanners);
+        toast.success('Баннер удален', { id: deleteToast });
       } catch (err: any) {
         console.error(err);
         toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
@@ -204,7 +171,6 @@ export default function BannersAdmin() {
     }
   };
 
-  // Sort banners by sort_order
   const sortedBanners = [...banners].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
@@ -288,7 +254,6 @@ export default function BannersAdmin() {
         </div>
       </div>
 
-      {/* Add/Edit Banner Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex justify-end">
@@ -319,8 +284,6 @@ export default function BannersAdmin() {
               </div>
 
               <div className="p-6 overflow-y-auto flex-1 space-y-5">
-                
-                {/* Image Upload */}
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Фотография баннера *</label>
                   

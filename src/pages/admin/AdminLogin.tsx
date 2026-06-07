@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 
@@ -14,22 +15,8 @@ export default function AdminLogin() {
     e.preventDefault();
     setIsLoading(true);
 
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-    if ((!isSupabaseConfigured || !supabase) && isLocalhost) {
-      // Mock login for local dev only
-      toast.success('Успешный вход (Dev Mode)');
-      navigate('/admin');
-      return;
-    }
-
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
+      await signInWithEmailAndPassword(auth, email, password);
       navigate('/admin');
     } catch (error: any) {
       toast.error(error.message || 'Ошибка входа');
@@ -80,12 +67,6 @@ export default function AdminLogin() {
             >
               {isLoading ? 'Вход...' : 'Войти'}
             </button>
-            
-            {!isSupabaseConfigured && (
-              <p className="text-xs text-center text-gray-400 mt-4">
-                Supabase не настроен. Любые данные пройдут (Dev Mode).
-              </p>
-            )}
           </form>
         </div>
       </div>
