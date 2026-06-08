@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, ShoppingBag, DollarSign, TrendingUp } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
-import { localDb } from '@/lib/localDb';
 import { Order } from '@/types';
 
 import { db } from '@/lib/firebase';
@@ -19,32 +18,15 @@ export default function DashboardAdmin() {
         querySnapshot.forEach((doc) => {
           fetchedOrders.push({ id: doc.id, ...doc.data() } as Order);
         });
-        
-        const localOrders = localDb.getOrders();
-        const allOrders = [...fetchedOrders];
-        
-        localOrders.forEach(lo => {
-          if (!allOrders.find(o => o.id === lo.id)) {
-            allOrders.push(lo);
-          }
-        });
-        
-        allOrders.sort((a, b) => {
+        fetchedOrders.sort((a, b) => {
           const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
           const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
           return timeB - timeA;
         });
         
-        setOrders(allOrders);
+        setOrders(fetchedOrders);
       } catch (e) {
         console.warn('Dashboard fetch error', e);
-        const localOrders = localDb.getOrders();
-        localOrders.sort((a, b) => {
-          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return timeB - timeA;
-        });
-        setOrders(localOrders);
       }
     };
     fetchOrders();

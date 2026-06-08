@@ -5,10 +5,9 @@ import { useCategories } from '@/hooks/useCategories';
 import { formatPrice } from '@/lib/utils';
 import { Product } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
 import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
 
 function dataURItoBlob(dataURI: string) {
@@ -25,7 +24,6 @@ function dataURItoBlob(dataURI: string) {
 export default function ProductsAdmin() {
   const { data: initialProducts, isLoading } = useProducts();
   const { data: categoriesList } = useCategories();
-  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,12 +32,6 @@ export default function ProductsAdmin() {
   const queryClient = useQueryClient();
   const [imageFile, setImageFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    if (initialProducts) {
-      setProducts(initialProducts);
-    }
-  }, [initialProducts]);
-  
   const defaultForm: Partial<Product> = {
     name: '',
     price: 0,
@@ -55,7 +47,7 @@ export default function ProductsAdmin() {
 
   const [formData, setFormData] = useState<Partial<Product>>(defaultForm);
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) || [];
+  const filtered = (initialProducts || []).filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -148,9 +140,9 @@ export default function ProductsAdmin() {
       setEditingId(null);
       setFormData(defaultForm);
       setImageFile(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
+      toast.error(`Ошибка сохранения: ${err instanceof Error ? err.message : String(err)}`, { id: saveToast });
     }
   };
 
@@ -175,9 +167,9 @@ export default function ProductsAdmin() {
         await deleteDoc(doc(db, 'products', id));
         queryClient.invalidateQueries({ queryKey: ['products'] });
         toast.success('Товар удален', { id: deleteToast });
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
+        toast.error(`Ошибка удаления: ${err instanceof Error ? err.message : String(err)}`, { id: deleteToast });
       }
     }
   };

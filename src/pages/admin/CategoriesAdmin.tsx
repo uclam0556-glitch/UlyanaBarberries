@@ -3,25 +3,13 @@ import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, UploadCloud } from 'lu
 import { useCategories } from '@/hooks/useCategories';
 import { Category } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
 import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
-function dataURItoBlob(dataURI: string) {
-  const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-}
 
 export default function CategoriesAdmin() {
   const { data: initialCategories, isLoading } = useCategories();
-  const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -38,12 +26,6 @@ export default function CategoriesAdmin() {
   };
 
   const [formData, setFormData] = useState<Partial<Category>>(defaultForm);
-
-  useEffect(() => {
-    if (initialCategories) {
-      setCategories(initialCategories);
-    }
-  }, [initialCategories]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,9 +108,9 @@ export default function CategoriesAdmin() {
       setEditingId(null);
       setFormData(defaultForm);
       setImageFile(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
+      toast.error(`Ошибка сохранения: ${err instanceof Error ? err.message : String(err)}`, { id: saveToast });
     }
   };
 
@@ -153,9 +135,9 @@ export default function CategoriesAdmin() {
         await deleteDoc(doc(db, 'categories', id));
         queryClient.invalidateQueries({ queryKey: ['categories'] });
         toast.success('Категория удалена', { id: deleteToast });
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
+        toast.error(`Ошибка удаления: ${err instanceof Error ? err.message : String(err)}`, { id: deleteToast });
       }
     }
   };
@@ -189,7 +171,7 @@ export default function CategoriesAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {categories.map((category) => (
+                {(initialCategories || []).map((category) => (
                   <tr key={category.id} className="border-b border-cream-dark hover:bg-cream/50 transition-colors">
                     <td className="py-3 px-4 font-semibold text-choco">{category.sort_order}</td>
                     <td className="py-3 px-4">
@@ -227,7 +209,7 @@ export default function CategoriesAdmin() {
                     </td>
                   </tr>
                 ))}
-                {categories.length === 0 && (
+                {(initialCategories || []).length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">
                       Категории не найдены

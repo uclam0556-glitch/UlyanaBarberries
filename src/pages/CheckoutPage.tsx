@@ -10,7 +10,6 @@ import { formatPrice } from '@/lib/utils';
 import { Order, OrderItem } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { localDb } from '@/lib/localDb';
 
 const schema = z.object({
   customer_name: z.string().min(2, 'Введите имя (минимум 2 символа)'),
@@ -101,7 +100,6 @@ export default function CheckoutPage() {
       await addDoc(collection(db, 'orders'), order);
     } catch (e) {
       console.warn('Order save failed:', e);
-      localDb.saveOrder(order);
     }
 
     let url = '';

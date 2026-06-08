@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { ChevronRight, Package, Truck, Gift, Clock } from 'lucide-react';
-import { localDb } from '@/lib/localDb';
 import { useFeaturedProducts } from '@/hooks/useProducts';
 import ProductCard from '@/components/catalog/ProductCard';
 import { ProductGridSkeleton } from '@/components/catalog/ProductSkeleton';

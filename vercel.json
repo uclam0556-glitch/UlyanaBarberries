@@ -1,27 +1,25 @@
 {
-  "rewrites": [
-    {
-      "source": "/supabase-proxy/:match*",
-      "destination": "https://pedudlvzotzusuzwvbhe.supabase.co/:match*"
-    }
-  ],
   "headers": [
     {
-      "source": "/supabase-proxy/:match*",
+      "source": "/(.*)",
       "headers": [
         {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
         {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "X-Client-Info, apikey, Authorization, Content-Type, Prefer"
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

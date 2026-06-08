@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash2, Image as ImageIcon, X, Save, UploadCloud } from 'lucide-react';
 import { Banner } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
 import { db, uploadImageToImgbb } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
@@ -38,7 +37,6 @@ export default function BannersAdmin() {
         setBanners(fetchedBanners);
       } catch (err) {
         console.error('Error loading banners', err);
-        setBanners(localDb.getBanners());
       }
     };
     loadBanners();

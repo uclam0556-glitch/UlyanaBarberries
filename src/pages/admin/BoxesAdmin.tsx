@@ -3,26 +3,13 @@ import { Plus, Edit, Trash2, X, Save, Package, UploadCloud } from 'lucide-react'
 import { useBoxes } from '@/hooks/useBoxes';
 import { BoxConfig } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
 import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
-
-function dataURItoBlob(dataURI: string) {
-  const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-}
 
 export default function BoxesAdmin() {
   const { data: initialBoxes, isLoading } = useBoxes();
-  const [boxes, setBoxes] = useState<BoxConfig[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -39,12 +26,6 @@ export default function BoxesAdmin() {
   };
 
   const [formData, setFormData] = useState<Partial<BoxConfig>>(defaultForm);
-
-  useEffect(() => {
-    if (initialBoxes) {
-      setBoxes(initialBoxes);
-    }
-  }, [initialBoxes]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -124,9 +105,9 @@ export default function BoxesAdmin() {
       setEditingId(null);
       setFormData(defaultForm);
       setImageFile(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
+      toast.error(`Ошибка сохранения: ${err instanceof Error ? err.message : String(err)}`, { id: saveToast });
     }
   };
 
@@ -151,9 +132,9 @@ export default function BoxesAdmin() {
         await deleteDoc(doc(db, 'box_configs', id));
         queryClient.invalidateQueries({ queryKey: ['boxes'] });
         toast.success('Коробка удалена', { id: deleteToast });
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
+        toast.error(`Ошибка удаления: ${err instanceof Error ? err.message : String(err)}`, { id: deleteToast });
       }
     }
   };
@@ -188,7 +169,7 @@ export default function BoxesAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {boxes.map((box) => (
+                {(initialBoxes || []).map((box) => (
                   <tr key={box.id} className="border-b border-cream-dark hover:bg-cream/50 transition-colors">
                     <td className="py-3 px-4">
                       {box.image_url ? (
@@ -227,7 +208,7 @@ export default function BoxesAdmin() {
                     </td>
                   </tr>
                 ))}
-                {boxes.length === 0 && (
+                {(initialBoxes || []).length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-gray-500 text-sm">
                       Коробки не найдены

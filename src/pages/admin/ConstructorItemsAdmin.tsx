@@ -5,22 +5,11 @@ import { Product } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
-function dataURItoBlob(dataURI: string) {
-  const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-}
 
 export default function ConstructorItemsAdmin() {
   const { data: initialItems, isLoading } = useConstructorProducts();
-  const [items, setItems] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -38,12 +27,6 @@ export default function ConstructorItemsAdmin() {
   };
 
   const [formData, setFormData] = useState<Partial<Product>>(defaultForm);
-
-  useEffect(() => {
-    if (initialItems) {
-      setItems(initialItems);
-    }
-  }, [initialItems]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -134,9 +117,9 @@ export default function ConstructorItemsAdmin() {
       setEditingId(null);
       setFormData(defaultForm);
       setImageFile(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
+      toast.error(`Ошибка сохранения: ${err instanceof Error ? err.message : String(err)}`, { id: saveToast });
     }
   };
 
@@ -161,9 +144,9 @@ export default function ConstructorItemsAdmin() {
         await deleteDoc(doc(db, 'products', id));
         queryClient.invalidateQueries({ queryKey: ['products'] });
         toast.success('Ингредиент удален', { id: deleteToast });
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
+        toast.error(`Ошибка удаления: ${err instanceof Error ? err.message : String(err)}`, { id: deleteToast });
       }
     }
   };
@@ -206,7 +189,7 @@ export default function ConstructorItemsAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {(initialItems || []).map((item) => (
                   <tr key={item.id} className="border-b border-cream-dark hover:bg-cream/50 transition-colors">
                     <td className="py-3 px-4">
                       {item.images?.[0] ? (
@@ -245,7 +228,7 @@ export default function ConstructorItemsAdmin() {
                     </td>
                   </tr>
                 ))}
-                {items.length === 0 && (
+                {(initialItems || []).length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-gray-500 text-sm">
                       Ингредиенты не добавлены. Нажмите «Добавить ингредиент», чтобы наполнить конструктор.

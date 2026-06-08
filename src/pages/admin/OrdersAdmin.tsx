@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Eye, Search, Filter, X, Download, Printer } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
-import { localDb } from '@/lib/localDb';
 import { formatPrice } from '@/lib/utils';
 import { Order } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,33 +26,16 @@ export default function OrdersAdmin() {
         fetchedOrders.push({ id: doc.id, ...doc.data() } as Order);
       });
       
-      const localOrders = localDb.getOrders();
-      const allOrders = [...fetchedOrders];
-      
-      // Merge local orders that are not in Firebase
-      localOrders.forEach(lo => {
-        if (!allOrders.find(o => o.id === lo.id)) {
-          allOrders.push(lo);
-        }
-      });
-      
       // Sort on client side
-      allOrders.sort((a, b) => {
+      fetchedOrders.sort((a, b) => {
         const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
         return timeB - timeA;
       });
       
-      setOrders(allOrders);
+      setOrders(fetchedOrders);
     } catch (e: any) {
       console.warn('Firebase orders error', e);
-      const localOrders = localDb.getOrders();
-      localOrders.sort((a, b) => {
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return timeB - timeA;
-      });
-      setOrders(localOrders);
     } finally {
       setIsLoading(false);
     }
@@ -66,9 +48,7 @@ export default function OrdersAdmin() {
       toast.success('Статус обновлён');
     } catch (err) {
       console.warn(err);
-      localDb.updateOrderStatus(id, status);
-      fetchOrders();
-      toast.success('Статус обновлён (Локально)');
+      toast.error('Ошибка обновления статуса');
     }
   };
 

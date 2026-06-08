@@ -1,31 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, UploadCloud } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, UploadCloud } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { formatPrice } from '@/lib/utils';
 import { Product, Category } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { localDb } from '@/lib/localDb';
 import toast from 'react-hot-toast';
 import { db, uploadImageToImgbb } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
-
-function dataURItoBlob(dataURI: string) {
-  const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-}
 
 export default function FlowersAdmin() {
   const { data: initialProducts, isLoading: isProductsLoading } = useProducts();
   const { data: categoriesList, isLoading: isCategoriesLoading } = useCategories();
-  const [products, setProducts] = useState<Product[]>([]);
   const [flowerCategoryId, setFlowerCategoryId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -75,11 +62,6 @@ export default function FlowersAdmin() {
           queryClient.invalidateQueries({ queryKey: ['categories'] });
         } catch (err) {
           console.error('Error creating Flowers category in Firebase:', err);
-          const newCat = localDb.saveCategory({
-            ...newCategoryData,
-            id: `cat-flowers-${Date.now()}`
-          } as Category);
-          setFlowerCategoryId(newCat.id);
         }
       }
     };
@@ -88,12 +70,9 @@ export default function FlowersAdmin() {
   }, [categoriesList, isCategoriesLoading]);
 
   // 2. Filter products belonging to the Flower category
-  useEffect(() => {
-    if (initialProducts && flowerCategoryId) {
-      const filtered = initialProducts.filter(p => p.category_id === flowerCategoryId);
-      setProducts(filtered);
-    }
-  }, [initialProducts, flowerCategoryId]);
+  const products = initialProducts && flowerCategoryId 
+    ? initialProducts.filter(p => p.category_id === flowerCategoryId) 
+    : [];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -191,9 +170,9 @@ export default function FlowersAdmin() {
       setEditingId(null);
       setFormData(defaultForm);
       setImageFile(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(`Ошибка сохранения: ${err.message || err}`, { id: saveToast });
+      toast.error(`Ошибка сохранения: ${err instanceof Error ? err.message : String(err)}`, { id: saveToast });
     }
   };
 
@@ -218,9 +197,9 @@ export default function FlowersAdmin() {
         await deleteDoc(doc(db, 'products', id));
         queryClient.invalidateQueries({ queryKey: ['products'] });
         toast.success('Товар удален', { id: deleteToast });
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        toast.error(`Ошибка удаления: ${err.message || err}`, { id: deleteToast });
+        toast.error(`Ошибка удаления: ${err instanceof Error ? err.message : String(err)}`, { id: deleteToast });
       }
     }
   };
