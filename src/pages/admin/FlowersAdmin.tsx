@@ -160,7 +160,7 @@ export default function FlowersAdmin() {
       const uniqueSuffix = Math.random().toString(36).substring(2, 7);
       const slug = `${baseSlug}-${uniqueSuffix}`;
 
-      const productData = {
+      const productData: any = {
         name: formData.name,
         price: Number(formData.price),
         old_price: formData.old_price ? Number(formData.old_price) : null,
@@ -172,8 +172,11 @@ export default function FlowersAdmin() {
         is_featured: formData.is_featured ?? false,
         is_constructor_item: false,
         sort_order: formData.sort_order ?? 0,
-        slug: editingId ? undefined : slug,
       };
+
+      if (!editingId) {
+        productData.slug = slug;
+      }
 
       if (editingId) {
         await updateDoc(doc(db, 'products', editingId), productData);

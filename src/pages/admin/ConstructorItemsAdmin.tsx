@@ -107,15 +107,18 @@ export default function ConstructorItemsAdmin() {
       const uniqueSuffix = Math.random().toString(36).substring(2, 7);
       const slug = `${baseSlug}-${uniqueSuffix}`;
 
-      const productData = {
+      const productData: any = {
         name: formData.name,
         price: Number(formData.price),
         images: imageUrls,
         is_active: formData.is_active,
         is_constructor_item: true,
         sort_order: Number(formData.sort_order || 1),
-        slug: editingId ? undefined : slug,
       };
+
+      if (!editingId) {
+        productData.slug = slug;
+      }
 
       if (editingId) {
         await updateDoc(doc(db, 'products', editingId), productData);
