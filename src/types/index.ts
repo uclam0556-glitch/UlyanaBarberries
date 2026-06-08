@@ -52,6 +52,7 @@ export interface BoxConfig {
   base_price: number;
   image_url?: string;
   is_active: boolean;
+  sort_order?: number;
 }
 
 export interface CartItem {
