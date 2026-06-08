@@ -29,7 +29,7 @@ export default function BannersAdmin() {
   useEffect(() => {
     const loadBanners = async () => {
       try {
-        const q = query(collection(db, 'banners'), orderBy('sort_order'));
+        const q = query(collection(db, 'banners'));
         const querySnapshot = await getDocs(q);
         const fetchedBanners: Banner[] = [];
         querySnapshot.forEach((doc) => {
@@ -118,7 +118,7 @@ export default function BannersAdmin() {
         toast.success('Баннер добавлен', { id: saveToast });
       }
       
-      const q = query(collection(db, 'banners'), orderBy('sort_order'));
+      const q = query(collection(db, 'banners'));
       const querySnapshot = await getDocs(q);
       const fetchedBanners: Banner[] = [];
       querySnapshot.forEach((doc) => {
@@ -156,7 +156,7 @@ export default function BannersAdmin() {
       try {
         await deleteDoc(doc(db, 'banners', id));
         
-        const q = query(collection(db, 'banners'), orderBy('sort_order'));
+        const q = query(collection(db, 'banners'));
         const querySnapshot = await getDocs(q);
         const fetchedBanners: Banner[] = [];
         querySnapshot.forEach((doc) => {

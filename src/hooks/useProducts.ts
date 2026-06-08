@@ -45,7 +45,6 @@ async function fetchFeaturedProducts(): Promise<Product[]> {
     const q = query(
       collection(db, 'products'),
       where('is_active', '==', true),
-      where('is_featured', '==', true),
       orderBy('sort_order')
     );
     const querySnapshot = await getDocs(q);
@@ -54,22 +53,13 @@ async function fetchFeaturedProducts(): Promise<Product[]> {
       products.push({ id: doc.id, ...doc.data() } as Product);
     });
 
-    if (products.length === 0) {
-      const allActiveQ = query(
-        collection(db, 'products'),
-        where('is_active', '==', true),
-        orderBy('sort_order'),
-        limit(10)
-      );
-      const allActiveSnap = await getDocs(allActiveQ);
-      const allActive: Product[] = [];
-      allActiveSnap.forEach((doc) => {
-        allActive.push({ id: doc.id, ...doc.data() } as Product);
-      });
-      return allActive;
+    const featured = products.filter(p => p.is_featured);
+
+    if (featured.length === 0) {
+      return products.slice(0, 10);
     }
 
-    return products;
+    return featured;
   } catch (error) {
     console.error("Error fetching featured products:", error);
     return [];

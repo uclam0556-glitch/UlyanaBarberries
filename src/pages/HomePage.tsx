@@ -46,17 +46,19 @@ export default function HomePage() {
     const loadBanners = async () => {
       try {
         const q = query(
-          collection(db, 'banners'),
-          where('is_active', '==', true),
-          orderBy('sort_order')
+          collection(db, 'banners')
         );
         const querySnapshot = await getDocs(q);
         const fetchedBanners: any[] = [];
         querySnapshot.forEach((doc) => {
           fetchedBanners.push({ id: doc.id, ...doc.data() });
         });
-        if (fetchedBanners.length > 0) {
-          setBanners(fetchedBanners);
+        const activeSortedBanners = fetchedBanners
+          .filter(b => b.is_active !== false)
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+          
+        if (activeSortedBanners.length > 0) {
+          setBanners(activeSortedBanners);
         }
       } catch (err) {
         console.error('Error loading banners from Firebase', err);
