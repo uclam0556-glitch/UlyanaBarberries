@@ -90,6 +90,7 @@ export default function CheckoutPage() {
       total_price: total,
       notes: data.notes,
       status: 'new',
+      created_at: new Date().toISOString(),
     };
 
     setLastOrder(order);

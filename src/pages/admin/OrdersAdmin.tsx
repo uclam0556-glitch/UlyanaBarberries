@@ -20,16 +20,40 @@ export default function OrdersAdmin() {
 
   const fetchOrders = async () => {
     try {
-      const q = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
+      const q = query(collection(db, 'orders'));
       const querySnapshot = await getDocs(q);
       const fetchedOrders: Order[] = [];
       querySnapshot.forEach((doc) => {
         fetchedOrders.push({ id: doc.id, ...doc.data() } as Order);
       });
-      setOrders(fetchedOrders);
+      
+      const localOrders = localDb.getOrders();
+      const allOrders = [...fetchedOrders];
+      
+      // Merge local orders that are not in Firebase
+      localOrders.forEach(lo => {
+        if (!allOrders.find(o => o.id === lo.id)) {
+          allOrders.push(lo);
+        }
+      });
+      
+      // Sort on client side
+      allOrders.sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
+      
+      setOrders(allOrders);
     } catch (e: any) {
       console.warn('Firebase orders error', e);
-      setOrders(localDb.getOrders());
+      const localOrders = localDb.getOrders();
+      localOrders.sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
+      setOrders(localOrders);
     } finally {
       setIsLoading(false);
     }
