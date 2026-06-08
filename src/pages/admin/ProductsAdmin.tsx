@@ -230,7 +230,7 @@ export default function ProductsAdmin() {
                     </td>
                     <td className="py-3 px-4">
                       <p className="font-semibold text-sm text-choco line-clamp-1">{product.name}</p>
-                      <p className="text-xs text-gray-500">{product.category?.name || 'Без категории'}</p>
+                      <p className="text-xs text-gray-500">{categoriesList?.find(c => c.id === product.category_id)?.name || 'Без категории'}</p>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-baseline gap-1.5">

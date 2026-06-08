@@ -65,17 +65,17 @@ async function fetchFeaturedProducts(): Promise<Product[]> {
   }
 }
 
-export function useProducts(categorySlug?: string) {
+export function useProducts(categoryId?: string) {
   return useQuery({
-    queryKey: ['products', categorySlug],
+    queryKey: ['products', categoryId],
     queryFn: async () => {
       const products = await fetchProducts();
       // Filter out constructor items from general catalog
       const catalogProducts = products.filter(p => !p.is_constructor_item);
       
-      if (categorySlug && categorySlug !== 'all') {
-        // Since we are not doing a complex join like supabase, we filter on client
-        return catalogProducts.filter((p) => p.category_id === categorySlug || p.category?.slug === categorySlug);
+      if (categoryId && categoryId !== 'all') {
+        // Filter by Firebase category document ID
+        return catalogProducts.filter((p) => p.category_id === categoryId);
       }
       return catalogProducts;
     },

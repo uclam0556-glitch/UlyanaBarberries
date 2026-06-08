@@ -140,9 +140,9 @@ export default function CatalogPage() {
             {(categories || []).map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCategory(cat.slug)}
+                onClick={() => setSelectedCategory(cat.id!)}
                 className={`text-sm font-semibold px-4 py-2 rounded-full transition-colors touch-feedback whitespace-nowrap ${
-                  selectedCategory === cat.slug
+                  selectedCategory === cat.id
                     ? 'bg-primary text-white'
                     : 'bg-white text-choco border border-cream-dark'
                 }`}
