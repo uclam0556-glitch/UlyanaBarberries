@@ -13,10 +13,10 @@ import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { buildQuickTelegramLink } from '@/lib/social';
 
 const features = [
-  { icon: '🍓', title: 'Свежая клубника', desc: 'Только отборные ягоды каждый день' },
-  { icon: '🌸', title: 'Свежие цветы', desc: 'Красивые букеты и композиции' },
-  { icon: '🍫', title: 'Бельгийский шоколад', desc: 'Настоящий премиум-шоколад' },
-  { icon: '🚚', title: 'Доставка за 2 часа', desc: 'По Балашихе и Москве' },
+  { image: '/images/features/strawberries.png', title: 'Свежая клубника', desc: 'Отборные ягоды каждый день' },
+  { image: '/images/features/flowers.png', title: 'Свежие цветы', desc: 'Красивые букеты и композиции' },
+  { image: '/images/features/chocolate.png', title: 'Бельгийский шоколад', desc: 'Настоящий премиум-шоколад' },
+  { image: '/images/features/delivery.png', title: 'Доставка за 2 часа', desc: 'По Балашихе и Москве' },
 ];
 
 const reviews = [
@@ -133,11 +133,14 @@ export default function HomePage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
-              className="flex flex-col items-center text-center p-4 rounded-2xl bg-cream"
+              className="relative flex flex-col items-center justify-center text-center p-4 rounded-2xl overflow-hidden h-32 shadow-sm"
             >
-              <span className="text-2xl mb-2">{f.icon}</span>
-              <p className="font-semibold text-xs text-choco mb-0.5">{f.title}</p>
-              <p className="text-[11px] text-gray-500 leading-snug">{f.desc}</p>
+              <img src={f.image} alt={f.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 hover:scale-110" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+              <div className="relative z-10 mt-auto w-full pb-1">
+                <p className="font-bold text-sm text-white mb-0.5">{f.title}</p>
+                <p className="text-[10px] text-white/80 leading-snug font-medium">{f.desc}</p>
+              </div>
             </motion.div>
           ))}
         </div>
