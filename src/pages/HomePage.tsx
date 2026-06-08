@@ -29,7 +29,7 @@ export default function HomePage() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
   const [productsEmblaRef] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay({ delay: 3500, stopOnInteraction: false })]);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [banners, setBanners] = useState(localDb.getBanners().filter(b => b.is_active));
+  const [banners, setBanners] = useState<any[]>([]);
   const { data: featuredProducts, isLoading } = useFeaturedProducts();
 
   const onSelect = useCallback(() => {
