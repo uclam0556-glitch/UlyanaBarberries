@@ -7,15 +7,14 @@ async function fetchBoxes(): Promise<BoxConfig[]> {
   try {
     const q = query(
       collection(db, 'box_configs'),
-      where('is_active', '==', true),
-      orderBy('sort_order')
+      where('is_active', '==', true)
     );
     const querySnapshot = await getDocs(q);
     const boxes: BoxConfig[] = [];
     querySnapshot.forEach((doc) => {
       boxes.push({ id: doc.id, ...doc.data() } as BoxConfig);
     });
-    return boxes;
+    return boxes.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   } catch (error) {
     console.error("Error fetching boxes:", error);
     return [];

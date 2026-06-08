@@ -7,15 +7,14 @@ async function fetchCategories(): Promise<Category[]> {
   try {
     const q = query(
       collection(db, 'categories'),
-      where('is_active', '==', true),
-      orderBy('sort_order')
+      where('is_active', '==', true)
     );
     const querySnapshot = await getDocs(q);
     const categories: Category[] = [];
     querySnapshot.forEach((doc) => {
       categories.push({ id: doc.id, ...doc.data() } as Category);
     });
-    return categories;
+    return categories.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   } catch (error) {
     console.error("Error fetching categories:", error);
     return [];

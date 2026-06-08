@@ -7,15 +7,14 @@ async function fetchProducts(): Promise<Product[]> {
   try {
     const q = query(
       collection(db, 'products'),
-      where('is_active', '==', true),
-      orderBy('sort_order')
+      where('is_active', '==', true)
     );
     const querySnapshot = await getDocs(q);
     const products: Product[] = [];
     querySnapshot.forEach((doc) => {
       products.push({ id: doc.id, ...doc.data() } as Product);
     });
-    return products;
+    return products.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   } catch (error) {
     console.error("Error fetching products:", error);
     return [];
