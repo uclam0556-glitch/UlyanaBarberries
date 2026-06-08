@@ -171,6 +171,7 @@ export default function FlowersAdmin() {
         is_active: formData.is_active ?? true,
         is_featured: formData.is_featured ?? false,
         is_constructor_item: false,
+        sort_order: formData.sort_order ?? 0,
         slug: editingId ? undefined : slug,
       };
 
