@@ -74,7 +74,7 @@ export default function CheckoutPage() {
       price: item.product.price + item.optionPrice,
       options: Object.entries(item.selectedOptions)
         .map(([key, val]) => `${key}: ${val}`)
-        .join(', ') || undefined,
+        .join(', ') || '',
     }));
 
     const finalAddress = data.delivery_type === 'pickup' 
@@ -88,7 +88,7 @@ export default function CheckoutPage() {
       delivery_time: data.delivery_time,
       items: orderItems,
       total_price: total,
-      notes: data.notes,
+      notes: data.notes || '',
       status: 'new',
       created_at: new Date().toISOString(),
     };
